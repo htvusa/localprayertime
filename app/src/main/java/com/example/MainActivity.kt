@@ -3,6 +3,8 @@ package com.example
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
@@ -359,6 +361,110 @@ fun MainAppLayout(
                 currentTheme = currentTheme,
                 onDismiss = { isSettingsOpen = false }
             )
+        }
+
+        // ── Optional Auto Update Alert Dialog ──
+        val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
+        val latestVersionName by viewModel.latestVersionName.collectAsStateWithLifecycle()
+        val latestVersionDescription by viewModel.latestVersionDescription.collectAsStateWithLifecycle()
+        val latestApkUrl by viewModel.latestApkUrl.collectAsStateWithLifecycle()
+        val latestReleasePageUrl by viewModel.latestReleasePageUrl.collectAsStateWithLifecycle()
+        
+        var dismissUpdatePrompt by remember { mutableStateOf(false) }
+
+        if (updateAvailable && !dismissUpdatePrompt) {
+            Dialog(
+                onDismissRequest = { dismissUpdatePrompt = true },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.88f)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = currentTheme.surface),
+                    border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.35f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(currentTheme.primary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = currentTheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "New Update Available!",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = currentTheme.textOnBg
+                        )
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        Text(
+                            text = "A new version ($latestVersionName) was detected on GitHub.\n\nUpdate notes:\n$latestVersionDescription",
+                            fontSize = 12.sp,
+                            color = currentTheme.textSub,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { dismissUpdatePrompt = true },
+                                modifier = Modifier.weight(1f),
+                                border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.3f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = currentTheme.primary)
+                            ) {
+                                Text("Later", fontSize = 12.sp)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    val downloadUrl = if (latestApkUrl.isNotEmpty()) latestApkUrl else latestReleasePageUrl
+                                    if (downloadUrl.isNotEmpty()) {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            // ignore
+                                        }
+                                    }
+                                    dismissUpdatePrompt = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = currentTheme.primary,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Download", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1746,6 +1852,159 @@ fun AmbientSettingsPopup(
                                 checkedTrackColor = currentTheme.primary
                             )
                         )
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 5. GitHub Updates Configuration
+                    Text(
+                        text = "🚀 GITHUB AUTO CONFIG & CHECKS",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    val githubOwner by viewModel.githubOwner.collectAsStateWithLifecycle()
+                    val githubRepo by viewModel.githubRepo.collectAsStateWithLifecycle()
+                    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
+                    val updateAvailableVal by viewModel.updateAvailable.collectAsStateWithLifecycle()
+                    val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
+                    val updateErrorMessage by viewModel.updateErrorMessage.collectAsStateWithLifecycle()
+
+                    var inputOwner by remember { mutableStateOf(githubOwner) }
+                    var inputRepo by remember { mutableStateOf(githubRepo) }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.04f))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Set repository where you compile & push changes to trigger inside-app updates:",
+                            fontSize = 11.sp,
+                            color = currentTheme.textSub
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = inputOwner,
+                                onValueChange = { inputOwner = it },
+                                label = { Text("GitHub Owner", fontSize = 10.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = currentTheme.primary,
+                                    unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
+                                    focusedLabelColor = currentTheme.primary,
+                                    focusedTextColor = currentTheme.textOnBg,
+                                    unfocusedTextColor = currentTheme.textOnBg
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = inputRepo,
+                                onValueChange = { inputRepo = it },
+                                label = { Text("Repo Name", fontSize = 10.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = currentTheme.primary,
+                                    unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
+                                    focusedLabelColor = currentTheme.primary,
+                                    focusedTextColor = currentTheme.textOnBg,
+                                    unfocusedTextColor = currentTheme.textOnBg
+                                )
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.updateGithubConfig(inputOwner, inputRepo)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Apply & Search", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            if (isCheckingUpdate) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = currentTheme.primary,
+                                        strokeWidth = 1.8.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Checking...", fontSize = 11.sp, color = currentTheme.textSub)
+                                }
+                            } else {
+                                Button(
+                                    onClick = { viewModel.checkGitHubUpdates(manuallyTriggered = true) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary.copy(alpha = 0.15f)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text("Check Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                            }
+                        }
+
+                        // Status notification info block
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (updateAvailableVal) currentTheme.primary.copy(alpha = 0.12f)
+                                else currentTheme.surface.copy(alpha = 0.6f)
+                            ),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = if (updateAvailableVal) currentTheme.primary.copy(alpha = 0.3f)
+                                else currentTheme.primary.copy(alpha = 0.08f)
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                if (updateAvailableVal) {
+                                    Text(
+                                        text = "📢 Update Available: v$latestVersionNameVal",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = currentTheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Please tap download on the screen prompt or restart the app to upgrade.",
+                                        fontSize = 9.sp,
+                                        color = currentTheme.textSub
+                                    )
+                                } else if (updateErrorMessage != null) {
+                                    Text(
+                                        text = "⚠️ " + updateErrorMessage!!,
+                                        fontSize = 10.sp,
+                                        color = Color.Red,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Text(
+                                        text = "✓ App is up-to-date",
+                                        fontSize = 10.sp,
+                                        color = currentTheme.textSub
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

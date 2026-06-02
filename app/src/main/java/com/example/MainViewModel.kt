@@ -65,6 +65,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _stayAwake = MutableStateFlow(prefs.getBoolean("stay_awake", true)) // stay awake default true
     val stayAwake: StateFlow<Boolean> = _stayAwake.asStateFlow()
 
+    // ── GitHub Auto Update Configuration ──
+    private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "jm7867") ?: "jm7867")
+    val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
+
+    private val _githubRepo = MutableStateFlow(prefs.getString("github_repo", "pa") ?: "pa")
+    val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
+
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
+
+    private val _updateAvailable = MutableStateFlow(false)
+    val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
+
+    private val _latestVersionName = MutableStateFlow("")
+    val latestVersionName: StateFlow<String> = _latestVersionName.asStateFlow()
+
+    private val _latestVersionDescription = MutableStateFlow("")
+    val latestVersionDescription: StateFlow<String> = _latestVersionDescription.asStateFlow()
+
+    private val _latestApkUrl = MutableStateFlow("")
+    val latestApkUrl: StateFlow<String> = _latestApkUrl.asStateFlow()
+
+    private val _latestReleasePageUrl = MutableStateFlow("")
+    val latestReleasePageUrl: StateFlow<String> = _latestReleasePageUrl.asStateFlow()
+
+    private val _updateErrorMessage = MutableStateFlow<String?>(null)
+    val updateErrorMessage: StateFlow<String?> = _updateErrorMessage.asStateFlow()
+
     // ── Coordinates & Location State Flow ──
     private val _latitude = MutableStateFlow(prefs.getFloat("lat", 21.4225f).toDouble()) // Default Mecca
     val latitude: StateFlow<Double> = _latitude.asStateFlow()
@@ -165,6 +193,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         fetchBackupNasheedManifest()
         updateSchedules()
         fetchWeatherDetails()
+
+        // Check for updates automatically in the background
+        viewModelScope.launch {
+            try {
+                delay(3000) // smooth startup delay
+                checkGitHubUpdates(manuallyTriggered = false)
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
     }
 
     // Update settings securely
@@ -785,4 +823,140 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         quranPlayer?.release()
         nasheedPlayer?.release()
     }
+
+    // ── GitHub Auto Update Processing ──
+    fun updateGithubConfig(owner: String, repo: String) {
+        val cleanOwner = owner.trim()
+        val cleanRepo = repo.trim()
+        _githubOwner.value = cleanOwner
+        _githubRepo.value = cleanRepo
+        prefs.edit()
+            .putString("github_owner", cleanOwner)
+            .putString("github_repo", cleanRepo)
+            .apply()
+        // clear previous update results to force recheck
+        _updateAvailable.value = false
+        _latestVersionName.value = ""
+        _updateErrorMessage.value = null
+        checkGitHubUpdates(manuallyTriggered = true)
+    }
+
+    fun checkGitHubUpdates(manuallyTriggered: Boolean = false) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isCheckingUpdate.value = true
+            _updateErrorMessage.value = null
+            try {
+                val owner = _githubOwner.value.trim()
+                val repo = _githubRepo.value.trim()
+                if (owner.isEmpty() || repo.isEmpty()) {
+                    _updateErrorMessage.value = "GitHub owner or repository cannot be empty"
+                    _isCheckingUpdate.value = false
+                    return@launch
+                }
+
+                val url = "https://api.github.com/repos/$owner/$repo/releases/latest"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Android-Prayer-Scheduler-Update-Checker")
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful && response.body != null) {
+                        val bodyString = response.body!!.string()
+                        val adapter = moshi.adapter(GithubRelease::class.java)
+                        val release = adapter.fromJson(bodyString)
+
+                        if (release != null && !release.tag_name.isNullOrEmpty()) {
+                            val tag = release.tag_name
+                            var currentVersionName = "1.0"
+                            try {
+                                val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                currentVersionName = pInfo.versionName ?: "1.0"
+                            } catch (ve: Exception) {
+                                // fallback
+                            }
+
+                            val isNewer = isNewerVersion(currentVersionName, tag)
+                            if (isNewer) {
+                                _updateAvailable.value = true
+                                _latestVersionName.value = tag
+                                _latestVersionDescription.value = release.body ?: release.name ?: "New version available on GitHub."
+                                _latestReleasePageUrl.value = release.html_url ?: ""
+                                
+                                val apkAsset = release.assets?.find {
+                                    it.name?.endsWith(".apk", ignoreCase = true) == true
+                                }
+                                _latestApkUrl.value = apkAsset?.browser_download_url ?: ""
+                                if (manuallyTriggered) {
+                                    _uiEvents.emit("New update $tag is available!")
+                                }
+                            } else {
+                                _updateAvailable.value = false
+                                if (manuallyTriggered) {
+                                    _uiEvents.emit("App is up-to-date (v$currentVersionName)")
+                                }
+                            }
+                        } else {
+                            _updateErrorMessage.value = "No latest release found"
+                            if (manuallyTriggered) {
+                                _uiEvents.emit("No latest release found.")
+                            }
+                        }
+                    } else if (response.code == 404) {
+                        _updateErrorMessage.value = "Repository not found or has no releases"
+                        if (manuallyTriggered) {
+                            _uiEvents.emit("Repo or release not found (404)")
+                        }
+                    } else {
+                        _updateErrorMessage.value = "API error: HTTP ${response.code}"
+                        if (manuallyTriggered) {
+                            _uiEvents.emit("Check failed: HTTP ${response.code}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("UpdateChecker", "Failed checking GitHub updates", e)
+                _updateErrorMessage.value = e.localizedMessage ?: "Connection error"
+                if (manuallyTriggered) {
+                    _uiEvents.emit("Connection failed")
+                }
+            } finally {
+                _isCheckingUpdate.value = false
+            }
+        }
+    }
+
+    private fun isNewerVersion(current: String, latest: String): Boolean {
+        return try {
+            val cleanCurrent = current.trim().removePrefix("v").removePrefix("V")
+            val cleanLatest = latest.trim().removePrefix("v").removePrefix("V")
+            if (cleanCurrent == cleanLatest) return false
+
+            val currParts = cleanCurrent.split(".", "-").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+            val lateParts = cleanLatest.split(".", "-").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+
+            val minLen = minOf(currParts.size, lateParts.size)
+            for (i in 0 until minLen) {
+                if (lateParts[i] > currParts[i]) return true
+                if (lateParts[i] < currParts[i]) return false
+            }
+            lateParts.size > currParts.size
+        } catch (e: Exception) {
+            latest != current
+        }
+    }
 }
+
+// ── GitHub API JSON Models ──
+data class GithubAsset(
+    val name: String? = null,
+    val browser_download_url: String? = null
+)
+
+data class GithubRelease(
+    val tag_name: String? = null,
+    val name: String? = null,
+    val body: String? = null,
+    val html_url: String? = null,
+    val assets: List<GithubAsset>? = null
+)
