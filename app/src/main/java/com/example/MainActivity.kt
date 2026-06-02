@@ -58,6 +58,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.theme.MyApplicationTheme
 import com.google.android.gms.location.LocationServices
@@ -127,6 +130,13 @@ class MainActivity : ComponentActivity() {
                     MainAppLayout(viewModel = viewModel, currentTheme = currentTheme, activity = this)
                 }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
         }
     }
 
@@ -1436,7 +1446,25 @@ fun AmbientSettingsPopup(
     // Preview state theme key
     var previewThemeKey by remember { mutableStateOf(currentTheme.id) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val view = LocalView.current
+        DisposableEffect(view) {
+            try {
+                val window = (view.parent as? DialogWindowProvider)?.window
+                if (window != null) {
+                    val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+                    windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+                }
+            } catch (e: Exception) {
+                // Ignore immersive error
+            }
+            onDispose {}
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
