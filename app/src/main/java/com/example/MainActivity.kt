@@ -372,7 +372,6 @@ fun SidebarColumn(
     val locationText by viewModel.locationName.collectAsStateWithLifecycle()
     val weatherText by viewModel.weatherText.collectAsStateWithLifecycle()
     val azanOn by viewModel.azanOn.collectAsStateWithLifecycle()
-    val stayAwakeEnabled by viewModel.stayAwake.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -466,54 +465,6 @@ fun SidebarColumn(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Stay Awake Feature Controller directly placed on Tablet Sidebar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(currentTheme.primary.copy(alpha = 0.08f))
-                .clickable { viewModel.toggleStayAwake(!stayAwakeEnabled) }
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Timer,
-                    contentDescription = "Stay Awake icon",
-                    tint = if (stayAwakeEnabled) currentTheme.primary else currentTheme.textSub,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "Stay Awake",
-                        fontSize = 13.sp,
-                        color = currentTheme.textOnBg,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (stayAwakeEnabled) "Screen remains ON" else "Screen standard timeout",
-                        fontSize = 10.sp,
-                        color = currentTheme.textSub
-                    )
-                }
-            }
-            Switch(
-                checked = stayAwakeEnabled,
-                onCheckedChange = { viewModel.toggleStayAwake(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = currentTheme.primary,
-                    uncheckedThumbColor = currentTheme.textSub,
-                    uncheckedTrackColor = currentTheme.background
-                ),
-                modifier = Modifier.scale(0.85f).testTag("sidebar_stay_awake_switch")
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
         // Sidebar custom control triggers
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -582,8 +533,7 @@ fun MainContentColumn(
         // Today schedule heading & calendar week strip
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Today's Schedules & Week Grid",
@@ -593,34 +543,6 @@ fun MainContentColumn(
                 color = currentTheme.primaryVariant,
                 fontStyle = FontStyle.Italic
             )
-            
-            // Stay awake visual indicator directly on right content top row
-            val awake by viewModel.stayAwake.collectAsStateWithLifecycle()
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (awake) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.surface.copy(alpha = 0.4f)
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.clickable { viewModel.toggleStayAwake(!awake) }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(if (awake) currentTheme.primary else currentTheme.textMuted, CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (awake) "Screen: Keep Awake" else "Screen: Default",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (awake) currentTheme.primary else currentTheme.textSub
-                    )
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -768,43 +690,6 @@ fun MobileClockContainer(viewModel: MainViewModel, currentTheme: PrayerTheme) {
         ) {
             LiveAwesomeClockWidget(currentTheme = currentTheme)
             
-            Spacer(modifier = Modifier.height(10.dp))
-            
-            // Stay awake mobile inline toggle switch for visual convenience!
-            val awakeEnabled by viewModel.stayAwake.collectAsStateWithLifecycle()
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(currentTheme.primary.copy(alpha = 0.05f))
-                    .clickable { viewModel.toggleStayAwake(!awakeEnabled) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Timer,
-                    contentDescription = null,
-                    tint = if (awakeEnabled) currentTheme.primary else currentTheme.textSub,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (awakeEnabled) "Stay Awake (Active)" else "Stay Awake (Idle)",
-                    fontSize = 11.sp,
-                    color = if (awakeEnabled) currentTheme.primary else currentTheme.textOnBg,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Switch(
-                    checked = awakeEnabled,
-                    onCheckedChange = { viewModel.toggleStayAwake(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = currentTheme.primary
-                    ),
-                    modifier = Modifier.scale(0.7f).testTag("mobile_stay_awake_switch")
-                )
-            }
-
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
