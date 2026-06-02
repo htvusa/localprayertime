@@ -1867,6 +1867,7 @@ fun AmbientSettingsPopup(
 
                     val githubOwner by viewModel.githubOwner.collectAsStateWithLifecycle()
                     val githubRepo by viewModel.githubRepo.collectAsStateWithLifecycle()
+                    val githubToken by viewModel.githubToken.collectAsStateWithLifecycle()
                     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
                     val updateAvailableVal by viewModel.updateAvailable.collectAsStateWithLifecycle()
                     val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
@@ -1874,6 +1875,7 @@ fun AmbientSettingsPopup(
 
                     var inputOwner by remember { mutableStateOf(githubOwner) }
                     var inputRepo by remember { mutableStateOf(githubRepo) }
+                    var inputToken by remember { mutableStateOf(githubToken) }
 
                     Column(
                         modifier = Modifier
@@ -1924,6 +1926,21 @@ fun AmbientSettingsPopup(
                             )
                         }
 
+                        OutlinedTextField(
+                            value = inputToken,
+                            onValueChange = { inputToken = it },
+                            label = { Text("Personal Access Token (optional for private repos)", fontSize = 10.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = currentTheme.primary,
+                                unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
+                                focusedLabelColor = currentTheme.primary,
+                                focusedTextColor = currentTheme.textOnBg,
+                                unfocusedTextColor = currentTheme.textOnBg
+                            )
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1931,7 +1948,7 @@ fun AmbientSettingsPopup(
                         ) {
                             Button(
                                 onClick = {
-                                    viewModel.updateGithubConfig(inputOwner, inputRepo)
+                                    viewModel.updateGithubConfig(inputOwner, inputRepo, inputToken)
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
                                 shape = RoundedCornerShape(8.dp),

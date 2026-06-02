@@ -72,6 +72,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _githubRepo = MutableStateFlow(prefs.getString("github_repo", "localprayertime") ?: "localprayertime")
     val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
+    private val _githubToken = MutableStateFlow(prefs.getString("github_token", "") ?: "")
+    val githubToken: StateFlow<String> = _githubToken.asStateFlow()
+
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
 
@@ -825,14 +828,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── GitHub Auto Update Processing ──
-    fun updateGithubConfig(owner: String, repo: String) {
+    fun updateGithubConfig(owner: String, repo: String, token: String) {
         val cleanOwner = owner.trim()
         val cleanRepo = repo.trim()
+        val cleanToken = token.trim()
         _githubOwner.value = cleanOwner
         _githubRepo.value = cleanRepo
+        _githubToken.value = cleanToken
         prefs.edit()
             .putString("github_owner", cleanOwner)
             .putString("github_repo", cleanRepo)
+            .putString("github_token", cleanToken)
             .apply()
         // clear previous update results to force recheck
         _updateAvailable.value = false
@@ -855,10 +861,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val url = "https://api.github.com/repos/$owner/$repo/releases/latest"
-                val request = Request.Builder()
+                val requestBuilder = Request.Builder()
                     .url(url)
                     .header("User-Agent", "Android-Prayer-Scheduler-Update-Checker")
-                    .build()
+                
+                val token = _githubToken.value.trim()
+                if (token.isNotEmpty()) {
+                    requestBuilder.header("Authorization", "token $token")
+                }
+                val request = requestBuilder.build()
 
                 httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful && response.body != null) {
@@ -903,7 +914,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     } else if (response.code == 404) {
-                        _updateErrorMessage.value = "Repository not found or has no releases"
+                        _updateErrorMessage.value = "Repository or Releases not found. Make sure the repo is public (or you supply a Personal Access Token) and you drafted a stable release with an attached apk."
                         if (manuallyTriggered) {
                             _uiEvents.emit("Repo or release not found (404)")
                         }
