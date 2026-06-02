@@ -66,10 +66,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val stayAwake: StateFlow<Boolean> = _stayAwake.asStateFlow()
 
     // ── GitHub Auto Update Configuration ──
-    private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "jm7867") ?: "jm7867")
+    private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "htvusa") ?: "htvusa")
     val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
 
-    private val _githubRepo = MutableStateFlow(prefs.getString("github_repo", "pa") ?: "pa")
+    private val _githubRepo = MutableStateFlow(prefs.getString("github_repo", "localprayertime") ?: "localprayertime")
     val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
     private val _isCheckingUpdate = MutableStateFlow(false)

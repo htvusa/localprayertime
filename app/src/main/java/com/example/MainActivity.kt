@@ -639,13 +639,13 @@ fun MainContentColumn(
     Column(
         modifier = modifier
     ) {
-        // Today schedule heading & calendar week strip
+        // Today schedule heading
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Today's Schedules & Week Grid",
+                text = "Today's Schedules",
                 fontFamily = FontFamily.Serif,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
