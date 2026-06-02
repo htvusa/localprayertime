@@ -72,9 +72,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _githubRepo = MutableStateFlow(prefs.getString("github_repo", "localprayertime") ?: "localprayertime")
     val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
-    private val _githubToken = MutableStateFlow(prefs.getString("github_token", "") ?: "")
-    val githubToken: StateFlow<String> = _githubToken.asStateFlow()
-
     private val _isCheckingUpdate = MutableStateFlow(false)
     val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
 
@@ -828,25 +825,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── GitHub Auto Update Processing ──
-    fun updateGithubConfig(owner: String, repo: String, token: String) {
-        val cleanOwner = owner.trim()
-        val cleanRepo = repo.trim()
-        val cleanToken = token.trim()
-        _githubOwner.value = cleanOwner
-        _githubRepo.value = cleanRepo
-        _githubToken.value = cleanToken
-        prefs.edit()
-            .putString("github_owner", cleanOwner)
-            .putString("github_repo", cleanRepo)
-            .putString("github_token", cleanToken)
-            .apply()
-        // clear previous update results to force recheck
-        _updateAvailable.value = false
-        _latestVersionName.value = ""
-        _updateErrorMessage.value = null
-        checkGitHubUpdates(manuallyTriggered = true)
-    }
-
     fun checkGitHubUpdates(manuallyTriggered: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             _isCheckingUpdate.value = true
@@ -855,21 +833,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val owner = _githubOwner.value.trim()
                 val repo = _githubRepo.value.trim()
                 if (owner.isEmpty() || repo.isEmpty()) {
-                    _updateErrorMessage.value = "GitHub owner or repository cannot be empty"
+                    _updateErrorMessage.value = "GitHub configuration is empty"
                     _isCheckingUpdate.value = false
                     return@launch
                 }
 
                 val url = "https://api.github.com/repos/$owner/$repo/releases/latest"
-                val requestBuilder = Request.Builder()
+                val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "Android-Prayer-Scheduler-Update-Checker")
-                
-                val token = _githubToken.value.trim()
-                if (token.isNotEmpty()) {
-                    requestBuilder.header("Authorization", "token $token")
-                }
-                val request = requestBuilder.build()
+                    .build()
 
                 httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful && response.body != null) {
@@ -914,9 +887,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     } else if (response.code == 404) {
-                        _updateErrorMessage.value = "Repository or Releases not found. Make sure the repo is public (or you supply a Personal Access Token) and you drafted a stable release with an attached apk."
+                        _updateErrorMessage.value = "No release found on GitHub. Make sure you have compiled a release and drafted a release with an attached .apk file on 'htvusa/localprayertime'."
                         if (manuallyTriggered) {
-                            _uiEvents.emit("Repo or release not found (404)")
+                            _uiEvents.emit("No release found (404)")
                         }
                     } else {
                         _updateErrorMessage.value = "API error: HTTP ${response.code}"

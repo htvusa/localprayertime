@@ -440,15 +440,40 @@ fun MainAppLayout(
                             
                             Button(
                                 onClick = {
-                                    val downloadUrl = if (latestApkUrl.isNotEmpty()) latestApkUrl else latestReleasePageUrl
-                                    if (downloadUrl.isNotEmpty()) {
+                                    val apkUrl = latestApkUrl
+                                    if (apkUrl.isNotEmpty()) {
                                         try {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(apkUrl)).apply {
+                                                setTitle("Prayer Scheduler Update")
+                                                setDescription("Downloading latest update ($latestVersionName)...")
+                                                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                                setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "localprayertime-update-$latestVersionName.apk")
                                             }
-                                            context.startActivity(intent)
+                                            manager.enqueue(request)
+                                            android.widget.Toast.makeText(context, "Download started! Check your notification panel.", android.widget.Toast.LENGTH_LONG).show()
                                         } catch (e: Exception) {
-                                            // ignore
+                                            // Fallback to browser action if DownloadManager fails or on older versions
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (ex: Exception) {
+                                                // ignore fallback failures
+                                            }
+                                        }
+                                    } else {
+                                        val downloadUrl = latestReleasePageUrl
+                                        if (downloadUrl.isNotEmpty()) {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                // ignore fallback failures
+                                            }
                                         }
                                     }
                                     dismissUpdatePrompt = true
@@ -1858,24 +1883,17 @@ fun AmbientSettingsPopup(
 
                     // 5. GitHub Updates Configuration
                     Text(
-                        text = "🚀 GITHUB AUTO CONFIG & CHECKS",
+                        text = "🚀 SYSTEM UPDATES",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = currentTheme.primary,
                         letterSpacing = 1.5.sp
                     )
 
-                    val githubOwner by viewModel.githubOwner.collectAsStateWithLifecycle()
-                    val githubRepo by viewModel.githubRepo.collectAsStateWithLifecycle()
-                    val githubToken by viewModel.githubToken.collectAsStateWithLifecycle()
                     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
                     val updateAvailableVal by viewModel.updateAvailable.collectAsStateWithLifecycle()
                     val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
                     val updateErrorMessage by viewModel.updateErrorMessage.collectAsStateWithLifecycle()
-
-                    var inputOwner by remember { mutableStateOf(githubOwner) }
-                    var inputRepo by remember { mutableStateOf(githubRepo) }
-                    var inputToken by remember { mutableStateOf(githubToken) }
 
                     Column(
                         modifier = Modifier
@@ -1886,59 +1904,9 @@ fun AmbientSettingsPopup(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Set repository where you compile & push changes to trigger inside-app updates:",
+                            text = "Check for new compiled application builds from GitHub (htvusa/localprayertime):",
                             fontSize = 11.sp,
                             color = currentTheme.textSub
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = inputOwner,
-                                onValueChange = { inputOwner = it },
-                                label = { Text("GitHub Owner", fontSize = 10.sp) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = currentTheme.primary,
-                                    unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
-                                    focusedLabelColor = currentTheme.primary,
-                                    focusedTextColor = currentTheme.textOnBg,
-                                    unfocusedTextColor = currentTheme.textOnBg
-                                )
-                            )
-
-                            OutlinedTextField(
-                                value = inputRepo,
-                                onValueChange = { inputRepo = it },
-                                label = { Text("Repo Name", fontSize = 10.sp) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = currentTheme.primary,
-                                    unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
-                                    focusedLabelColor = currentTheme.primary,
-                                    focusedTextColor = currentTheme.textOnBg,
-                                    unfocusedTextColor = currentTheme.textOnBg
-                                )
-                            )
-                        }
-
-                        OutlinedTextField(
-                            value = inputToken,
-                            onValueChange = { inputToken = it },
-                            label = { Text("Personal Access Token (optional for private repos)", fontSize = 10.sp) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = currentTheme.primary,
-                                unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.3f),
-                                focusedLabelColor = currentTheme.primary,
-                                focusedTextColor = currentTheme.textOnBg,
-                                unfocusedTextColor = currentTheme.textOnBg
-                            )
                         )
 
                         Row(
@@ -1946,16 +1914,12 @@ fun AmbientSettingsPopup(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Button(
-                                onClick = {
-                                    viewModel.updateGithubConfig(inputOwner, inputRepo, inputToken)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(36.dp)
-                            ) {
-                                Text("Apply & Search", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            }
+                            Text(
+                                text = "Stable version update",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = currentTheme.textOnBg
+                            )
 
                             if (isCheckingUpdate) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
