@@ -93,6 +93,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _updateErrorMessage = MutableStateFlow<String?>(null)
     val updateErrorMessage: StateFlow<String?> = _updateErrorMessage.asStateFlow()
 
+    private val _isDownloadingUpdate = MutableStateFlow(false)
+    val isDownloadingUpdate: StateFlow<Boolean> = _isDownloadingUpdate.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow(0f)
+    val downloadProgress: StateFlow<Float> = _downloadProgress.asStateFlow()
+
+    private val _downloadedApkFile = MutableStateFlow<java.io.File?>(null)
+    val downloadedApkFile: StateFlow<java.io.File?> = _downloadedApkFile.asStateFlow()
+
     // ── Coordinates & Location State Flow ──
     private val _latitude = MutableStateFlow(prefs.getFloat("lat", 21.4225f).toDouble()) // Default Mecca
     val latitude: StateFlow<Double> = _latitude.asStateFlow()
@@ -908,6 +917,81 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _isCheckingUpdate.value = false
             }
         }
+    }
+
+    fun downloadApkDirectly(apkUrl: String) {
+        if (apkUrl.isEmpty()) {
+            viewModelScope.launch {
+                _uiEvents.emit("Cannot download: Empty APK URL")
+            }
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            _isDownloadingUpdate.value = true
+            _downloadProgress.value = 0f
+            _downloadedApkFile.value = null
+
+            try {
+                val request = Request.Builder()
+                    .url(apkUrl)
+                    .header("User-Agent", "Android-Prayer-Scheduler-Downloader")
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        _updateErrorMessage.value = "Download failed: HTTP ${response.code}"
+                        _uiEvents.emit("Download failed: HTTP ${response.code}")
+                        _isDownloadingUpdate.value = false
+                        return@launch
+                    }
+
+                    val body = response.body
+                    if (body == null) {
+                        _updateErrorMessage.value = "Empty download body content"
+                        _uiEvents.emit("Empty download content")
+                        _isDownloadingUpdate.value = false
+                        return@launch
+                    }
+
+                    val totalBytes = body.contentLength()
+                    val apkFile = java.io.File(context.cacheDir, "localprayertime-update-${_latestVersionName.value}.apk")
+                    if (apkFile.exists()) {
+                        apkFile.delete()
+                    }
+
+                    body.byteStream().use { inputStream ->
+                        apkFile.outputStream().use { outputStream ->
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            var totalBytesRead = 0L
+
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytesRead += bytesRead
+                                if (totalBytes > 0) {
+                                    _downloadProgress.value = totalBytesRead.toFloat() / totalBytes.toFloat()
+                                }
+                            }
+                        }
+                    }
+
+                    _downloadProgress.value = 1.0f
+                    _downloadedApkFile.value = apkFile
+                    _uiEvents.emit("Download completed successfully!")
+                }
+            } catch (e: Exception) {
+                Log.e("ApkDownload", "Failed to download update", e)
+                _updateErrorMessage.value = "Connection error during download: ${e.localizedMessage}"
+                _uiEvents.emit("Connection failed during download")
+            } finally {
+                _isDownloadingUpdate.value = false
+            }
+        }
+    }
+
+    fun clearDownloadedApkFile() {
+        _downloadedApkFile.value = null
     }
 
     private fun isNewerVersion(current: String, latest: String): Boolean {

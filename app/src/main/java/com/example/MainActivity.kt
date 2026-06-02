@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -369,12 +370,50 @@ fun MainAppLayout(
         val latestVersionDescription by viewModel.latestVersionDescription.collectAsStateWithLifecycle()
         val latestApkUrl by viewModel.latestApkUrl.collectAsStateWithLifecycle()
         val latestReleasePageUrl by viewModel.latestReleasePageUrl.collectAsStateWithLifecycle()
-        
+
+        val isDownloadingUpdate by viewModel.isDownloadingUpdate.collectAsStateWithLifecycle()
+        val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+        val downloadedApkFile by viewModel.downloadedApkFile.collectAsStateWithLifecycle()
+
+        LaunchedEffect(downloadedApkFile) {
+            val file = downloadedApkFile
+            if (file != null) {
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        if (!context.packageManager.canRequestPackageInstalls()) {
+                            val settingsIntent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(settingsIntent)
+                            android.widget.Toast.makeText(context, "Please allow 'Install unknown apps' and download again.", android.widget.Toast.LENGTH_LONG).show()
+                            viewModel.clearDownloadedApkFile()
+                            return@LaunchedEffect
+                        }
+                    }
+
+                    val authority = "${context.packageName}.fileprovider"
+                    val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(installIntent)
+                } catch (e: Exception) {
+                    Log.e("DirectInstall", "Failed to start package installer", e)
+                    android.widget.Toast.makeText(context, "Failed to start installer: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+                } finally {
+                    viewModel.clearDownloadedApkFile()
+                }
+            }
+        }
+
         var dismissUpdatePrompt by remember { mutableStateOf(false) }
 
         if (updateAvailable && !dismissUpdatePrompt) {
             Dialog(
-                onDismissRequest = { dismissUpdatePrompt = true },
+                onDismissRequest = { if (!isDownloadingUpdate) dismissUpdatePrompt = true },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
                 Card(
@@ -398,7 +437,7 @@ fun MainAppLayout(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Info,
+                                imageVector = if (isDownloadingUpdate) Icons.Default.Refresh else Icons.Default.Info,
                                 contentDescription = null,
                                 tint = currentTheme.primary,
                                 modifier = Modifier.size(32.dp)
@@ -408,7 +447,7 @@ fun MainAppLayout(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Text(
-                            text = "New Update Available!",
+                            text = if (isDownloadingUpdate) "Downloading Update..." else "New Update Available!",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = currentTheme.textOnBg
@@ -416,75 +455,81 @@ fun MainAppLayout(
                         
                         Spacer(modifier = Modifier.height(10.dp))
                         
-                        Text(
-                            text = "A new version ($latestVersionName) was detected on GitHub.\n\nUpdate notes:\n$latestVersionDescription",
-                            fontSize = 12.sp,
-                            color = currentTheme.textSub,
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(modifier = Modifier.height(24.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { dismissUpdatePrompt = true },
-                                modifier = Modifier.weight(1f),
-                                border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.3f)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = currentTheme.primary)
-                            ) {
-                                Text("Later", fontSize = 12.sp)
-                            }
+                        if (isDownloadingUpdate) {
+                            val progressPercent = (downloadProgress * 100).toInt()
+                            Text(
+                                text = "Downloading update from GitHub directly. The installer will open automatically.\n\nProgress: $progressPercent%",
+                                fontSize = 12.sp,
+                                color = currentTheme.textSub,
+                                textAlign = TextAlign.Center
+                            )
                             
-                            Button(
-                                onClick = {
-                                    val apkUrl = latestApkUrl
-                                    if (apkUrl.isNotEmpty()) {
-                                        try {
-                                            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(apkUrl)).apply {
-                                                setTitle("Prayer Scheduler Update")
-                                                setDescription("Downloading latest update ($latestVersionName)...")
-                                                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                                setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "localprayertime-update-$latestVersionName.apk")
-                                            }
-                                            manager.enqueue(request)
-                                            android.widget.Toast.makeText(context, "Download started! Check your notification panel.", android.widget.Toast.LENGTH_LONG).show()
-                                        } catch (e: Exception) {
-                                            // Fallback to browser action if DownloadManager fails or on older versions
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)).apply {
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                }
-                                                context.startActivity(intent)
-                                            } catch (ex: Exception) {
-                                                // ignore fallback failures
-                                            }
-                                        }
-                                    } else {
-                                        val downloadUrl = latestReleasePageUrl
-                                        if (downloadUrl.isNotEmpty()) {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                }
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                // ignore fallback failures
-                                            }
-                                        }
-                                    }
-                                    dismissUpdatePrompt = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = currentTheme.primary,
-                                    contentColor = Color.White
-                                )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            LinearProgressIndicator(
+                                progress = downloadProgress,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = currentTheme.primary,
+                                trackColor = currentTheme.primary.copy(alpha = 0.15f)
+                            )
+                        } else {
+                            Text(
+                                text = "A new version ($latestVersionName) was detected on GitHub.\n\nUpdate notes:\n$latestVersionDescription",
+                                fontSize = 12.sp,
+                                color = currentTheme.textSub,
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text("Download", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                OutlinedButton(
+                                    onClick = { dismissUpdatePrompt = true },
+                                    modifier = Modifier.weight(1f),
+                                    border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.3f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = currentTheme.primary)
+                                ) {
+                                    Text("Later", fontSize = 12.sp)
+                                }
+                                
+                                Button(
+                                    onClick = {
+                                        val apkUrl = latestApkUrl
+                                        if (apkUrl.isNotEmpty()) {
+                                            viewModel.downloadApkDirectly(apkUrl)
+                                        } else {
+                                            val downloadUrl = latestReleasePageUrl
+                                            if (downloadUrl.isNotEmpty()) {
+                                                try {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    // ignore fallback failures
+                                                }
+                                                dismissUpdatePrompt = true
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = currentTheme.primary,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Text(
+                                        text = if (latestApkUrl.isNotEmpty()) "Download & Install" else "Update Page", 
+                                        fontSize = 12.sp, 
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
