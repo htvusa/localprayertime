@@ -84,6 +84,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _updateAvailable = MutableStateFlow(false)
     val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
 
+    private val _updatePromptTrigger = MutableStateFlow(0)
+    val updatePromptTrigger: StateFlow<Int> = _updatePromptTrigger.asStateFlow()
+
     private val _latestVersionName = MutableStateFlow("")
     val latestVersionName: StateFlow<String> = _latestVersionName.asStateFlow()
 
@@ -265,9 +268,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { _uiEvents.emit("Screen mode set to $newOrientation") }
     }
 
+    private var dateResetJob: Job? = null
+
     fun changeSelectedDate(date: LocalDate) {
         _selectedDate.value = date
         updateSchedules()
+
+        dateResetJob?.cancel()
+        if (date != LocalDate.now()) {
+            dateResetJob = viewModelScope.launch {
+                delay(30000)
+                _selectedDate.value = LocalDate.now()
+                updateSchedules()
+            }
+        }
     }
 
     fun setCoordinates(lat: Double, lon: Double) {
@@ -501,6 +515,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 delay(1800000) // 30 mins
                 updateSchedules()
                 fetchWeatherDetails()
+                try {
+                    checkGitHubUpdates(manuallyTriggered = false)
+                } catch (e: Exception) {
+                    // Ignore background check errors
+                }
             }
         }
     }
@@ -901,6 +920,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             val isNewer = isNewerVersion(currentVersionName, tag)
                             if (isNewer) {
                                 _updateAvailable.value = true
+                                _updatePromptTrigger.value = _updatePromptTrigger.value + 1
                                 _latestVersionName.value = tag
                                 _latestVersionDescription.value = release.body ?: release.name ?: "New version available on GitHub."
                                 _latestReleasePageUrl.value = release.html_url ?: ""

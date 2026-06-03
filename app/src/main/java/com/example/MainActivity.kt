@@ -439,7 +439,8 @@ fun MainAppLayout(
             }
         }
 
-        var dismissUpdatePrompt by remember { mutableStateOf(false) }
+        val updatePromptTrigger by viewModel.updatePromptTrigger.collectAsStateWithLifecycle()
+        var dismissUpdatePrompt by remember(updatePromptTrigger) { mutableStateOf(false) }
 
         if (updateAvailable && !dismissUpdatePrompt) {
             Dialog(
@@ -1366,7 +1367,22 @@ fun PrayerCardItem(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(14.dp)
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    val isTablet = screenWidth >= 600
     
+    val initialSize = when (textSizePreference) {
+        "small" -> if (isTablet) 32.sp else 24.sp
+        "medium" -> if (isTablet) 40.sp else 28.sp
+        "large" -> if (isTablet) 50.sp else 34.sp
+        "extra_large" -> if (isTablet) 60.sp else 40.sp
+        "huge" -> if (isTablet) 72.sp else 48.sp
+        
+        // Backward compatibility
+        "normal" -> if (isTablet) 40.sp else 28.sp
+        else -> if (isTablet) 50.sp else 34.sp
+    }
+
     Box(
         modifier = modifier
             .clip(shape)
@@ -1397,7 +1413,7 @@ fun PrayerCardItem(
             ) {
                 Text(
                     text = prayer.name,
-                    fontSize = 11.sp,
+                    fontSize = if (isTablet) 14.sp else 11.sp,
                     color = if (isNow) currentTheme.primary else currentTheme.textMuted,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
@@ -1413,7 +1429,7 @@ fun PrayerCardItem(
                     ) {
                         Text(
                             text = "ACTIVE",
-                            fontSize = 8.sp,
+                            fontSize = if (isTablet) 9.sp else 8.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White
                         )
@@ -1423,7 +1439,7 @@ fun PrayerCardItem(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = currentTheme.textMuted,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(if (isTablet) 16.dp else 14.dp)
                     )
                 }
             }
@@ -1437,23 +1453,7 @@ fun PrayerCardItem(
             val dispH = if (rawH % 12 == 0) 12 else rawH % 12
             val ap = if (rawH >= 12) "PM" else "AM"
 
-            val initialSize = when (textSizePreference) {
-                "normal" -> 32.sp
-                "large" -> 42.sp
-                "extra_large" -> 52.sp
-                "huge" -> 64.sp
-                else -> 42.sp
-            }
-            val amPmSize = when (textSizePreference) {
-                "normal" -> 10.sp
-                "large" -> 12.sp
-                "extra_large" -> 14.sp
-                "huge" -> 16.sp
-                else -> 12.sp
-            }
-
-            var sizeState by remember(textSizePreference) { mutableStateOf(initialSize) }
-            var readyToDraw by remember(textSizePreference) { mutableStateOf(false) }
+            var sizeState by remember(textSizePreference, isTablet) { mutableStateOf(initialSize) }
 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
@@ -1464,23 +1464,20 @@ fun PrayerCardItem(
                     maxLines = 1,
                     softWrap = false,
                     onTextLayout = { textLayoutResult ->
-                        if (textLayoutResult.hasVisualOverflow && sizeState.value > 16f) {
-                            sizeState = (sizeState.value * 0.9f).sp
-                        } else {
-                            readyToDraw = true
+                        if (textLayoutResult.hasVisualOverflow && sizeState.value > 12f) {
+                            sizeState = (sizeState.value * 0.95f).sp
                         }
-                    },
-                    modifier = Modifier.drawWithContent {
-                        if (readyToDraw) drawContent()
                     },
                     color = if (isNow) currentTheme.primaryVariant else currentTheme.textOnBg
                 )
+                
+                val currentAmPmSize = (sizeState.value * 0.33f).coerceAtLeast(8f).sp
                 Text(
                     text = " $ap",
-                    fontSize = amPmSize,
+                    fontSize = currentAmPmSize,
                     fontWeight = FontWeight.Bold,
                     color = if (isNow) currentTheme.primary else currentTheme.textSub,
-                    modifier = Modifier.padding(bottom = (sizeState.value * 0.15f).coerceAtMost(10f).dp)
+                    modifier = Modifier.padding(bottom = (sizeState.value * 0.12f).coerceAtMost(10f).dp)
                 )
             }
         }
@@ -2082,9 +2079,14 @@ fun AmbientSettingsPopup(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val sizes = listOf("small" to "Small", "medium" to "Medium", "large" to "Large")
+                        val sizes = listOf(
+                            "small" to "Small",
+                            "medium" to "Medium",
+                            "large" to "Large",
+                            "extra_large" to "Extra"
+                        )
                         sizes.forEach { (sizeId, name) ->
                             val isSelected = sizeId == textSizePreference
                             Box(
@@ -2103,7 +2105,7 @@ fun AmbientSettingsPopup(
                             ) {
                                 Text(
                                     text = name,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected) currentTheme.primary else currentTheme.textOnBg
                                 )
@@ -2395,7 +2397,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v1.6)",
+                                        text = "✓ App is up-to-date (v1.7)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
