@@ -1019,7 +1019,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             lateParts.size > currParts.size
         } catch (e: Exception) {
-            latest != current
+            val cleanCurrent = current.trim().removePrefix("v").removePrefix("V")
+            val cleanLatest = latest.trim().removePrefix("v").removePrefix("V")
+            cleanLatest != cleanCurrent
         }
     }
 }
