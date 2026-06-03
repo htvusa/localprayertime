@@ -38,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Timer
@@ -84,6 +85,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         hideSystemUI()
+
+        // ── Automatic Relaunch on Crash ──
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("CrashHandler", "Crash detected in thread ${thread.name}. Automatically relaunching app...", throwable)
+            try {
+                val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                }
+                applicationContext.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("CrashHandler", "Failed to relaunch automatically", e)
+            }
+            android.os.Process.killProcess(android.os.Process.myPid())
+            java.lang.System.exit(10)
+        }
 
         // ── Keep Screen Awake Configuration controller loop ──
         lifecycle.currentStateFlow.let {
@@ -1293,15 +1310,15 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
     }
 
     val now = ZonedDateTime.now()
-    val targetKeys = listOf("Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha")
+    val targetKeys = listOf("Imsak", "Fajr", "Sunrise", "Ishraq", "Dhuhr", "Asr", "Maghrib", "Isha")
     val finalPrayers = prayersList.filter { it.key in targetKeys }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Render 2-column layout (3 rows of 2 columns for Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha)
-        for (rowIndex in 0 until 3) {
+        // Render 2-column layout (4 rows of 2 columns for Imsak, Fajr, Sunrise, Ishraq, Dhuhr, Asr, Maghrib, Isha)
+        for (rowIndex in 0 until 4) {
             val firstIdx = rowIndex * 2
             val secondIdx = rowIndex * 2 + 1
             if (firstIdx < finalPrayers.size) {
@@ -1844,6 +1861,16 @@ fun AmbientSettingsPopup(
     val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
     val updateErrorMessage by viewModel.updateErrorMessage.collectAsStateWithLifecycle()
 
+    val themeKey by viewModel.theme.collectAsStateWithLifecycle()
+    val textSizePreference by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
+    val calcMethodVal by viewModel.calcMethod.collectAsStateWithLifecycle()
+    val asrSchoolVal by viewModel.asrSchool.collectAsStateWithLifecycle()
+    val azanOnVal by viewModel.azanOn.collectAsStateWithLifecycle()
+    val stayAwakeVal by viewModel.stayAwake.collectAsStateWithLifecycle()
+
+    var calcExpanded by remember { mutableStateOf(false) }
+    val selectedMethodName = CALCULATION_METHODS.find { it.id == calcMethodVal }?.name ?: "ISNA — North America"
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1899,10 +1926,62 @@ fun AmbientSettingsPopup(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(max = 480.dp)
+                        .verticalScroll(rememberScrollState())
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 1. Layout Mode Option Selectors: Auto, Landscape and Portrait Mode
+                    // 1. Theme Selector
+                    Text(
+                        text = "🎨 VISUAL THEMES",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PrayerTheme.values().forEach { theme ->
+                            val isSelected = theme.id == themeKey
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) theme.primary.copy(alpha = 0.2f) else theme.surface.copy(alpha = 0.4f))
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) theme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable { viewModel.updateTheme(theme.id) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(theme.primary)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = theme.displayName,
+                                        fontSize = 12.sp,
+                                        color = if (isSelected) theme.primary else currentTheme.textOnBg,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 2. Display Orientation Selectors
                     Text(
                         text = "📱 DISPLAY ORIENTATION",
                         fontSize = 9.sp,
@@ -2002,7 +2081,236 @@ fun AmbientSettingsPopup(
 
                     Divider(color = currentTheme.primary.copy(alpha = 0.1f))
 
-                    // 2. Application Update Module: Check for Updates
+                    // 3. Font Size Selectors
+                    Text(
+                        text = "📏 PRAYER TIME FONT SIZE",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val sizes = listOf("small" to "Small", "medium" to "Medium", "large" to "Large")
+                        sizes.forEach { (sizeId, name) ->
+                            val isSelected = sizeId == textSizePreference
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.primary.copy(alpha = 0.04f))
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) currentTheme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable { viewModel.updatePrayerTimeTextSize(sizeId) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = name,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) currentTheme.primary else currentTheme.textOnBg
+                                )
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 4. Calculation Method Selection
+                    Text(
+                        text = "🕊 CALCULATION METHOD",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(currentTheme.primary.copy(alpha = 0.04f))
+                                .border(1.dp, currentTheme.primary.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                .clickable { calcExpanded = !calcExpanded }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = selectedMethodName,
+                                fontSize = 12.sp,
+                                color = currentTheme.textOnBg,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = if (calcExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Dropdown Indicator",
+                                tint = currentTheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = calcExpanded,
+                            onDismissRequest = { calcExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .background(currentTheme.surface)
+                                .border(1.dp, currentTheme.primary.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        ) {
+                            CALCULATION_METHODS.forEach { method ->
+                                DropdownMenuItem(
+                                    text = { Text(text = method.name, fontSize = 12.sp, color = currentTheme.textOnBg) },
+                                    onClick = {
+                                        viewModel.updateCalculationMethod(method.id)
+                                        calcExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 5. Asr Calculation School Selection
+                    Text(
+                        text = "🕋 ASR SCHOOL (MADHAB)",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val schools = listOf(0 to "Shafi'i (Standard)", 1 to "Hanafi")
+                        schools.forEach { (schoolId, name) ->
+                            val isSelected = schoolId == asrSchoolVal
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.primary.copy(alpha = 0.04f))
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) currentTheme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable { viewModel.updateAsrSchool(schoolId) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = name,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) currentTheme.primary else currentTheme.textOnBg
+                                )
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 6. Audio notification & Screen Alert Options
+                    Text(
+                        text = "🔔 PREFERENCES",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.04f))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Keep Screen Awake
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Keep Screen Awake",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg
+                                )
+                                Text(
+                                    text = "Prevent screen from turning off.",
+                                    fontSize = 9.sp,
+                                    color = currentTheme.textSub
+                                )
+                            }
+                            Switch(
+                                checked = stayAwakeVal,
+                                onCheckedChange = { viewModel.toggleStayAwake(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = currentTheme.primary,
+                                    checkedTrackColor = currentTheme.primary.copy(alpha = 0.4f),
+                                    uncheckedThumbColor = currentTheme.textSub,
+                                    uncheckedTrackColor = currentTheme.primary.copy(alpha = 0.1f)
+                                )
+                            )
+                        }
+
+                        Divider(color = currentTheme.primary.copy(alpha = 0.06f))
+
+                        // Azan Alert Player
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Azan Voice Alert",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg
+                                )
+                                Text(
+                                    text = "Play audio when it's prayer time.",
+                                    fontSize = 9.sp,
+                                    color = currentTheme.textSub
+                                )
+                            }
+                            Switch(
+                                checked = azanOnVal,
+                                onCheckedChange = { viewModel.toggleAzan(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = currentTheme.primary,
+                                    checkedTrackColor = currentTheme.primary.copy(alpha = 0.4f),
+                                    uncheckedThumbColor = currentTheme.textSub,
+                                    uncheckedTrackColor = currentTheme.primary.copy(alpha = 0.1f)
+                                )
+                            )
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 7. System Updates
                     Text(
                         text = "🚀 SYSTEM SERVICE",
                         fontSize = 9.sp,
@@ -2024,16 +2332,16 @@ fun AmbientSettingsPopup(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Check for Updates",
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = currentTheme.textOnBg
                                 )
                                 Text(
                                     text = "Verify if newer application builds are available.",
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     color = currentTheme.textSub
                                 )
                             }
@@ -2041,21 +2349,22 @@ fun AmbientSettingsPopup(
                             if (isCheckingUpdate) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(14.dp),
                                         color = currentTheme.primary,
-                                        strokeWidth = 1.8.dp
+                                        strokeWidth = 1.5.dp
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Checking...", fontSize = 11.sp, color = currentTheme.textSub)
+                                    Text("Checking...", fontSize = 10.sp, color = currentTheme.textSub)
                                 }
                             } else {
                                 Button(
                                     onClick = { viewModel.checkGitHubUpdates(manuallyTriggered = true) },
                                     colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
                                     shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.height(36.dp)
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                                 ) {
-                                    Text("Check Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("Check Now", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
                         }
