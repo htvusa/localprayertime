@@ -217,10 +217,16 @@ fun MainAppLayout(
     val appOrientation by viewModel.appOrientation.collectAsStateWithLifecycle()
 
     LaunchedEffect(appOrientation) {
-        if (appOrientation == "landscape") {
-            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        } else {
-            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        when (appOrientation) {
+            "landscape" -> {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+            "portrait" -> {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            else -> {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         }
     }
 
@@ -291,7 +297,11 @@ fun MainAppLayout(
 
         // ── Responsive Layout Framework ──
         BoxWithConstraints(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            val isLandscape = appOrientation == "landscape"
+            val isLandscape = when (appOrientation) {
+                "landscape" -> true
+                "portrait" -> false
+                else -> maxWidth > maxHeight
+            }
 
             if (isLandscape) {
                 // Two-column Split Landscape layout for Tablets
@@ -572,13 +582,26 @@ fun SidebarColumn(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // App Identity Brand Banner
-        Image(
-            painter = painterResource(id = R.drawable.img_logo_1780453439629),
-            contentDescription = "Local Prayer Time Logo",
-            modifier = Modifier
-                .height(55.dp)
-                .clip(RoundedCornerShape(10.dp))
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "☽ ",
+                fontSize = 22.sp,
+                color = currentTheme.primaryVariant,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Local Prayer Times",
+                fontFamily = FontFamily.Serif,
+                fontSize = 18.sp,
+                color = currentTheme.textOnBg,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
+            )
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -759,34 +782,35 @@ fun BrandHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.img_logo_1780453439629),
-                contentDescription = "Local Prayer Time Logo",
-                modifier = Modifier
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(10.dp))
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = currentTheme.primary,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = locationText,
-                        fontSize = 12.sp,
-                        color = currentTheme.textSub,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "☽ ",
+                    fontSize = 24.sp,
+                    color = currentTheme.primaryVariant,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Local Prayer Times",
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = currentTheme.textOnBg
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = currentTheme.primary,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = locationText,
+                    fontSize = 12.sp,
+                    color = currentTheme.textSub
+                )
             }
         }
 
@@ -859,23 +883,23 @@ fun TimeAndWeatherRow(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val hijriText by viewModel.hijriText.collectAsStateWithLifecycle()
     val weatherText by viewModel.weatherText.collectAsStateWithLifecycle()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.4f)),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+    Row(
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        // Left Card: Time & Date
+        Card(
+            modifier = Modifier.weight(1.1f),
+            colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
         ) {
-            // Left Column: Time & Dates
             Column(
-                modifier = Modifier.weight(1.1f),
-                horizontalAlignment = Alignment.Start
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.Center
             ) {
                 // Live ticking digital clock widget
                 LiveAwesomeClockWidgetLeft(currentTheme = currentTheme)
@@ -900,16 +924,21 @@ fun TimeAndWeatherRow(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     fontWeight = FontWeight.Medium
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Right Column: Weather section
+        // Right Card: Weather section
+        Card(
+            modifier = Modifier.weight(0.9f),
+            colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+        ) {
             Column(
                 modifier = Modifier
-                    .weight(0.9f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .fillMaxWidth()
+                    .fillMaxHeight()
                     .background(currentTheme.primary.copy(alpha = 0.08f))
-                    .padding(10.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -919,7 +948,7 @@ fun TimeAndWeatherRow(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     fontWeight = FontWeight.Bold,
                     color = currentTheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = weatherText,
                     fontSize = 12.sp,
@@ -1264,88 +1293,56 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
     }
 
     val now = ZonedDateTime.now()
-    val targetKeys = listOf("Fajr", "Dhuhr", "Asr", "Maghrib")
-    val gridPrayers = prayersList.filter { it.key in targetKeys }
-    val finalPrayers = if (gridPrayers.size >= 4) gridPrayers.take(4) else prayersList.take(4)
+    val targetKeys = listOf("Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha")
+    val finalPrayers = prayersList.filter { it.key in targetKeys }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Row 1
-        if (finalPrayers.size >= 2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    val p = finalPrayers[0]
-                    val idx = prayersList.indexOf(p)
-                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                    val isDone = !isNow && now.isAfter(p.time)
-                    PrayerCardItem(
-                        prayer = p,
-                        isNow = isNow,
-                        isDone = isDone,
-                        currentTheme = currentTheme,
-                        textSizePreference = textSizePreference,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    val p = finalPrayers[1]
-                    val idx = prayersList.indexOf(p)
-                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                    val isDone = !isNow && now.isAfter(p.time)
-                    PrayerCardItem(
-                        prayer = p,
-                        isNow = isNow,
-                        isDone = isDone,
-                        currentTheme = currentTheme,
-                        textSizePreference = textSizePreference,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-        
-        // Row 2
-        if (finalPrayers.size >= 4) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    val p = finalPrayers[2]
-                    val idx = prayersList.indexOf(p)
-                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                    val isDone = !isNow && now.isAfter(p.time)
-                    PrayerCardItem(
-                        prayer = p,
-                        isNow = isNow,
-                        isDone = isDone,
-                        currentTheme = currentTheme,
-                        textSizePreference = textSizePreference,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    val p = finalPrayers[3]
-                    val idx = prayersList.indexOf(p)
-                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                    val isDone = !isNow && now.isAfter(p.time)
-                    PrayerCardItem(
-                        prayer = p,
-                        isNow = isNow,
-                        isDone = isDone,
-                        currentTheme = currentTheme,
-                        textSizePreference = textSizePreference,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+        // Render 2-column layout (3 rows of 2 columns for Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha)
+        for (rowIndex in 0 until 3) {
+            val firstIdx = rowIndex * 2
+            val secondIdx = rowIndex * 2 + 1
+            if (firstIdx < finalPrayers.size) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        val p = finalPrayers[firstIdx]
+                        val idx = prayersList.indexOf(p)
+                        val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                        val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                        val isDone = !isNow && now.isAfter(p.time)
+                        PrayerCardItem(
+                            prayer = p,
+                            isNow = isNow,
+                            isDone = isDone,
+                            currentTheme = currentTheme,
+                            textSizePreference = textSizePreference,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (secondIdx < finalPrayers.size) {
+                            val p = finalPrayers[secondIdx]
+                            val idx = prayersList.indexOf(p)
+                            val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                            val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                            val isDone = !isNow && now.isAfter(p.time)
+                            PrayerCardItem(
+                                prayer = p,
+                                isNow = isNow,
+                                isDone = isDone,
+                                currentTheme = currentTheme,
+                                textSizePreference = textSizePreference,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Spacer(modifier = Modifier)
+                        }
+                    }
                 }
             }
         }
@@ -1905,7 +1902,7 @@ fun AmbientSettingsPopup(
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 1. Layout Mode Option Selectors: Landscape and Portrait Mode
+                    // 1. Layout Mode Option Selectors: Auto, Landscape and Portrait Mode
                     Text(
                         text = "📱 DISPLAY ORIENTATION",
                         fontSize = 9.sp,
@@ -1916,8 +1913,36 @@ fun AmbientSettingsPopup(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Auto Option
+                        val sAuto = currentOrientation == "auto"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (sAuto) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.primary.copy(alpha = 0.04f))
+                                .border(
+                                    width = if (sAuto) 1.5.dp else 1.dp,
+                                    color = if (sAuto) currentTheme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { viewModel.updateAppOrientation("auto") }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "🔄", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Auto Mode",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (sAuto) currentTheme.primary else currentTheme.textOnBg
+                                )
+                            }
+                        }
+
                         // Portrait Option
                         val sPortrait = currentOrientation == "portrait"
                         Box(
@@ -1939,7 +1964,7 @@ fun AmbientSettingsPopup(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Portrait Mode",
-                                    fontSize = 13.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (sPortrait) currentTheme.primary else currentTheme.textOnBg
                                 )
@@ -1967,7 +1992,7 @@ fun AmbientSettingsPopup(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Landscape Mode",
-                                    fontSize = 13.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (sLandscape) currentTheme.primary else currentTheme.textOnBg
                                 )
