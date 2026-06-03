@@ -459,6 +459,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         countdownJob = viewModelScope.launch {
             while (true) {
                 calculateActiveAndNextPrayerState()
+
+                // Smooth daily reload at/after 12:01 AM so the user doesn't need to reopen the app
+                val systemDate = LocalDate.now()
+                val systemTime = LocalTime.now()
+                if (systemDate != _selectedDate.value && !systemTime.isBefore(LocalTime.of(0, 1))) {
+                    Log.d("DailyReload", "Smooth daily reload initiated at 12:01 AM or later")
+                    _selectedDate.value = systemDate
+                    updateSchedules()
+                    fetchWeatherDetails()
+                }
+
                 delay(1000)
             }
         }
@@ -876,10 +887,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 _latestVersionDescription.value = release.body ?: release.name ?: "New version available on GitHub."
                                 _latestReleasePageUrl.value = release.html_url ?: ""
                                 
-                                val apkAsset = release.assets?.find {
-                                    it.name?.endsWith(".apk", ignoreCase = true) == true
-                                }
-                                _latestApkUrl.value = apkAsset?.browser_download_url ?: ""
+                                // Direct raw APK download URL requested by user
+                                _latestApkUrl.value = "https://raw.githubusercontent.com/htvusa/localprayertime/main/.build-outputs/app-debug.apk"
                                 if (manuallyTriggered) {
                                     _uiEvents.emit("New update $tag is available!")
                                 }
