@@ -380,16 +380,6 @@ fun MainAppLayout(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Media systems
-                    Text(
-                        text = "Dynamic Worship Companion",
-                        fontFamily = FontFamily.Serif,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 18.sp,
-                        color = currentTheme.primaryVariant,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                    
                     InlineAudioCompanionWidget(viewModel = viewModel, currentTheme = currentTheme)
                 }
             }
@@ -2405,7 +2395,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v1.3)",
+                                        text = "✓ App is up-to-date (v1.6)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
