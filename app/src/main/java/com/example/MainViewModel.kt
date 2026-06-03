@@ -68,6 +68,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _prayerTimeTextSize = MutableStateFlow(prefs.getString("prayer_time_text_size", "large") ?: "large")
     val prayerTimeTextSize: StateFlow<String> = _prayerTimeTextSize.asStateFlow()
 
+    private val _appOrientation = MutableStateFlow(prefs.getString("app_orientation", "portrait") ?: "portrait")
+    val appOrientation: StateFlow<String> = _appOrientation.asStateFlow()
+
     // ── GitHub Auto Update Configuration ──
     private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "htvusa") ?: "htvusa")
     val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
@@ -254,6 +257,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _prayerTimeTextSize.value = newSize
         prefs.edit().putString("prayer_time_text_size", newSize).apply()
         viewModelScope.launch { _uiEvents.emit("Prayer time font size updated to $newSize") }
+    }
+
+    fun updateAppOrientation(newOrientation: String) {
+        _appOrientation.value = newOrientation
+        prefs.edit().putString("app_orientation", newOrientation).apply()
+        viewModelScope.launch { _uiEvents.emit("Screen mode set to $newOrientation") }
     }
 
     fun changeSelectedDate(date: LocalDate) {

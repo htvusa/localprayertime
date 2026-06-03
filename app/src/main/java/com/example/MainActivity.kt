@@ -24,6 +24,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import java.util.TimeZone
 import androidx.compose.foundation.layout.*
@@ -212,6 +214,15 @@ fun MainAppLayout(
 ) {
     val context = LocalContext.current
     var isSettingsOpen by remember { mutableStateOf(false) }
+    val appOrientation by viewModel.appOrientation.collectAsStateWithLifecycle()
+
+    LaunchedEffect(appOrientation) {
+        if (appOrientation == "landscape") {
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        } else {
+            activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
 
     // Request Location Permission dynamic hook on startup
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -280,9 +291,9 @@ fun MainAppLayout(
 
         // ── Responsive Layout Framework ──
         BoxWithConstraints(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            val isTablet = maxWidth > 720.dp
+            val isLandscape = appOrientation == "landscape"
 
-            if (isTablet) {
+            if (isLandscape) {
                 // Two-column Split Landscape layout for Tablets
                 Row(
                     modifier = Modifier.fillMaxSize()
@@ -321,13 +332,8 @@ fun MainAppLayout(
                     
                     Spacer(modifier = Modifier.height(14.dp))
                     
-                    // Simple inline status dates and location rows
-                    HijriDateBanner(viewModel = viewModel, currentTheme = currentTheme)
-                    
-                    Spacer(modifier = Modifier.height(14.dp))
-                    
-                    // Active Display clock
-                    MobileClockContainer(viewModel = viewModel, currentTheme = currentTheme)
+                    // Time & Date section on the left side, Current Weather section on the right side
+                    TimeAndWeatherRow(viewModel = viewModel, currentTheme = currentTheme)
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -566,26 +572,13 @@ fun SidebarColumn(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // App Identity Brand Banner
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "☽ ",
-                fontSize = 22.sp,
-                color = currentTheme.primaryVariant,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Local Prayer Times",
-                fontFamily = FontFamily.Serif,
-                fontSize = 18.sp,
-                color = currentTheme.textOnBg,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp
-            )
-        }
+        Image(
+            painter = painterResource(id = R.drawable.img_logo_1780453439629),
+            contentDescription = "Local Prayer Time Logo",
+            modifier = Modifier
+                .height(55.dp)
+                .clip(RoundedCornerShape(10.dp))
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -766,35 +759,34 @@ fun BrandHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "☽ ",
-                    fontSize = 24.sp,
-                    color = currentTheme.primaryVariant,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Local Prayer Times",
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = currentTheme.textOnBg
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = currentTheme.primary,
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = locationText,
-                    fontSize = 12.sp,
-                    color = currentTheme.textSub
-                )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.img_logo_1780453439629),
+                contentDescription = "Local Prayer Time Logo",
+                modifier = Modifier
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = currentTheme.primary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = locationText,
+                        fontSize = 12.sp,
+                        color = currentTheme.textSub,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
@@ -856,6 +848,133 @@ fun HijriDateBanner(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 color = currentTheme.textOnBg,
                 fontWeight = FontWeight.Medium,
                 fontStyle = FontStyle.Italic
+            )
+        }
+    }
+}
+
+@Composable
+fun TimeAndWeatherRow(viewModel: MainViewModel, currentTheme: PrayerTheme) {
+    val gregText by viewModel.gregorianText.collectAsStateWithLifecycle()
+    val hijriText by viewModel.hijriText.collectAsStateWithLifecycle()
+    val weatherText by viewModel.weatherText.collectAsStateWithLifecycle()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left Column: Time & Dates
+            Column(
+                modifier = Modifier.weight(1.1f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                // Live ticking digital clock widget
+                LiveAwesomeClockWidgetLeft(currentTheme = currentTheme)
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                Text(
+                    text = gregText,
+                    fontSize = 11.sp,
+                    color = currentTheme.textSub,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+                
+                Spacer(modifier = Modifier.height(2.dp))
+                
+                Text(
+                    text = hijriText,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 13.sp,
+                    color = currentTheme.textOnBg,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Right Column: Weather section
+            Column(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(currentTheme.primary.copy(alpha = 0.08f))
+                    .padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "🌤 Weather",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = currentTheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = weatherText,
+                    fontSize = 12.sp,
+                    color = currentTheme.textOnBg,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LiveAwesomeClockWidgetLeft(currentTheme: PrayerTheme) {
+    var time by remember { mutableStateOf(LocalTime.now()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            time = LocalTime.now()
+        }
+    }
+
+    val hr = time.format(DateTimeFormatter.ofPattern("hh"))
+    val min = time.format(DateTimeFormatter.ofPattern("mm"))
+    val sec = time.format(DateTimeFormatter.ofPattern("ss"))
+    val ap = time.format(DateTimeFormatter.ofPattern("a")).uppercase(Locale.US)
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Text(
+            text = "$hr:$min",
+            fontFamily = FontFamily.Serif,
+            fontSize = 36.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = currentTheme.primary
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Column(
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier.padding(bottom = 4.dp)
+        ) {
+            Text(
+                text = ap,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = currentTheme.textOnBg
+            )
+            Text(
+                text = ":$sec",
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                color = currentTheme.textSub
             )
         }
     }
@@ -1145,24 +1264,90 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
     }
 
     val now = ZonedDateTime.now()
+    val targetKeys = listOf("Fajr", "Dhuhr", "Asr", "Maghrib")
+    val gridPrayers = prayersList.filter { it.key in targetKeys }
+    val finalPrayers = if (gridPrayers.size >= 4) gridPrayers.take(4) else prayersList.take(4)
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        prayersList.forEach { prayer ->
-            val idx = prayersList.indexOf(prayer)
-            val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-            val isNow = now.isAfter(prayer.time) && (next == null || now.isBefore(next.time))
-            val isDone = !isNow && now.isAfter(prayer.time)
-
-            PrayerCardItem(
-                prayer = prayer,
-                isNow = isNow,
-                isDone = isDone,
-                currentTheme = currentTheme,
-                textSizePreference = textSizePreference,
-                modifier = Modifier.fillMaxWidth()
-            )
+        // Row 1
+        if (finalPrayers.size >= 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    val p = finalPrayers[0]
+                    val idx = prayersList.indexOf(p)
+                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                    val isDone = !isNow && now.isAfter(p.time)
+                    PrayerCardItem(
+                        prayer = p,
+                        isNow = isNow,
+                        isDone = isDone,
+                        currentTheme = currentTheme,
+                        textSizePreference = textSizePreference,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    val p = finalPrayers[1]
+                    val idx = prayersList.indexOf(p)
+                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                    val isDone = !isNow && now.isAfter(p.time)
+                    PrayerCardItem(
+                        prayer = p,
+                        isNow = isNow,
+                        isDone = isDone,
+                        currentTheme = currentTheme,
+                        textSizePreference = textSizePreference,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        
+        // Row 2
+        if (finalPrayers.size >= 4) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    val p = finalPrayers[2]
+                    val idx = prayersList.indexOf(p)
+                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                    val isDone = !isNow && now.isAfter(p.time)
+                    PrayerCardItem(
+                        prayer = p,
+                        isNow = isNow,
+                        isDone = isDone,
+                        currentTheme = currentTheme,
+                        textSizePreference = textSizePreference,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    val p = finalPrayers[3]
+                    val idx = prayersList.indexOf(p)
+                    val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
+                    val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
+                    val isDone = !isNow && now.isAfter(p.time)
+                    PrayerCardItem(
+                        prayer = p,
+                        isNow = isNow,
+                        isDone = isDone,
+                        currentTheme = currentTheme,
+                        textSizePreference = textSizePreference,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
@@ -1656,13 +1841,11 @@ fun AmbientSettingsPopup(
     currentTheme: PrayerTheme,
     onDismiss: () -> Unit
 ) {
-    val method by viewModel.calcMethod.collectAsStateWithLifecycle()
-    val school by viewModel.asrSchool.collectAsStateWithLifecycle()
-    val azanOn by viewModel.azanOn.collectAsStateWithLifecycle()
-    val stayAwakeEnabled by viewModel.stayAwake.collectAsStateWithLifecycle()
-
-    // Preview state theme key
-    var previewThemeKey by remember { mutableStateOf(currentTheme.id) }
+    val currentOrientation by viewModel.appOrientation.collectAsStateWithLifecycle()
+    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
+    val updateAvailableVal by viewModel.updateAvailable.collectAsStateWithLifecycle()
+    val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
+    val updateErrorMessage by viewModel.updateErrorMessage.collectAsStateWithLifecycle()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1685,14 +1868,14 @@ fun AmbientSettingsPopup(
 
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f),
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight(),
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = currentTheme.surface),
             border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.28f))
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxWidth()
             ) {
                 // Header block
                 Row(
@@ -1715,294 +1898,78 @@ fun AmbientSettingsPopup(
                     }
                 }
 
-                // Scrollable bodies
+                // Scrollable Content
                 Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Stay Awake feature (PROMINENT TOGGLE AS REQUESTED)
+                    // 1. Layout Mode Option Selectors: Landscape and Portrait Mode
                     Text(
-                        text = "🔔 DISPLAY CONVENIENCE",
+                        text = "📱 DISPLAY ORIENTATION",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = currentTheme.primary,
                         letterSpacing = 1.5.sp
                     )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(currentTheme.primary.copy(alpha = 0.08f))
-                            .clickable { viewModel.toggleStayAwake(!stayAwakeEnabled) }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
-                            Text(
-                                text = "Keep Screen Awake",
-                                fontSize = 13.sp,
-                                color = currentTheme.textOnBg,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Screen will never turn off while this prayer schedule app is open.",
-                                fontSize = 10.sp,
-                                color = currentTheme.textSub
-                            )
-                        }
-                        Switch(
-                            checked = stayAwakeEnabled,
-                            onCheckedChange = { viewModel.toggleStayAwake(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = currentTheme.primary
-                            ),
-                            modifier = Modifier.testTag("dialog_stay_awake_switch")
-                        )
-                    }
 
-                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
-
-                    // Prayer Time Readability Text Size (ACCESSIBILITY FOR ELDERLY)
-                    Text(
-                        text = "🔎 PRAYER TIME READABILITY",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = currentTheme.primary,
-                        letterSpacing = 1.5.sp
-                    )
-                    
-                    val currentTextSizePref by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(currentTheme.primary.copy(alpha = 0.08f))
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(0.43f).padding(end = 4.dp)) {
-                            Text(
-                                text = "Prayer Font Size",
-                                fontSize = 13.sp,
-                                color = currentTheme.textOnBg,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Provides giant, highly legible clock sizes optimized for older readers.",
-                                fontSize = 10.sp,
-                                color = currentTheme.textSub
-                            )
-                        }
-                        
-                        Row(
-                            modifier = Modifier
-                                .weight(0.57f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(currentTheme.surface)
-                                .padding(2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            listOf(
-                                "normal" to "Normal",
-                                "large" to "Large",
-                                "extra_large" to "X-Large",
-                                "huge" to "Giant"
-                            ).forEach { (key, label) ->
-                                val isSelected = key == currentTextSizePref
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(if (isSelected) currentTheme.primary else Color.Transparent)
-                                        .clickable { viewModel.updatePrayerTimeTextSize(key) }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else currentTheme.textOnBg
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
-
-                    // 1. Dynamic visual themes swatches
-                    Text(
-                        text = "🎨 VISUAL THEMES",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = currentTheme.primary,
-                        letterSpacing = 1.5.sp
-                    )
-                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        PrayerTheme.values().forEach { theme ->
-                            val isSel = theme.id == previewThemeKey
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(currentTheme.primary.copy(alpha = if (isSel) 0.15f else 0.04f))
-                                    .border(
-                                        width = 1.5.dp,
-                                        color = if (isSel) currentTheme.primary else Color.Transparent,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable {
-                                        previewThemeKey = theme.id
-                                        viewModel.updateTheme(theme.id)
-                                    }
-                                    .padding(6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(theme.background, CircleShape)
-                                            .border(1.dp, theme.primary, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = theme.displayName.split(" ").first(),
-                                        fontSize = 8.sp,
-                                        color = currentTheme.textOnBg,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
-
-                    // 2. Calculation method list selector
-                    Text(
-                        text = "🕌 CALCULATION METHOD",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = currentTheme.primary,
-                        letterSpacing = 1.5.sp
-                    )
-
-                    var methodOpen by remember { mutableStateOf(false) }
-                    val currentMethodObj = CALCULATION_METHODS.find { it.id == method } ?: CALCULATION_METHODS.first()
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(currentTheme.surface)
-                            .border(1.dp, currentTheme.primary.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                            .clickable { methodOpen = !methodOpen }
-                            .padding(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = currentMethodObj.name, fontSize = 13.sp, color = currentTheme.textOnBg)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = currentTheme.primary)
-                        }
-                    }
-
-                    if (methodOpen) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.95f)),
-                            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
-                        ) {
-                            Column(modifier = Modifier.height(200.dp).verticalScroll(rememberScrollState())) {
-                                CALCULATION_METHODS.forEach { item ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                viewModel.updateCalculationMethod(item.id)
-                                                methodOpen = false
-                                            }
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = item.name,
-                                            fontSize = 13.sp,
-                                            color = if (item.id == method) currentTheme.primary else currentTheme.textOnBg,
-                                            fontWeight = if (item.id == method) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
-
-                    // 3. School toggler selection Shafi/Hanafi
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Asr Calculation School",
-                                fontSize = 13.sp,
-                                color = currentTheme.textOnBg,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(text = "Hanafi school offsets sunset prayers by standard hour", fontSize = 10.sp, color = currentTheme.textSub)
-                        }
-
-                        Row(
+                        // Portrait Option
+                        val sPortrait = currentOrientation == "portrait"
+                        Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(currentTheme.primary.copy(alpha = 0.08f))
-                                .padding(2.dp)
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (sPortrait) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.primary.copy(alpha = 0.04f))
+                                .border(
+                                    width = if (sPortrait) 1.5.dp else 1.dp,
+                                    color = if (sPortrait) currentTheme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { viewModel.updateAppOrientation("portrait") }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (school == 0) currentTheme.primary else Color.Transparent)
-                                    .clickable { viewModel.updateAsrSchool(0) }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "📱", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Shafi'i",
-                                    fontSize = 11.sp,
+                                    text = "Portrait Mode",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (school == 0) Color.White else currentTheme.textSub
+                                    color = if (sPortrait) currentTheme.primary else currentTheme.textOnBg
                                 )
                             }
+                        }
 
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (school == 1) currentTheme.primary else Color.Transparent)
-                                    .clickable { viewModel.updateAsrSchool(1) }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
+                        // Landscape Option
+                        val sLandscape = currentOrientation == "landscape"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (sLandscape) currentTheme.primary.copy(alpha = 0.15f) else currentTheme.primary.copy(alpha = 0.04f))
+                                .border(
+                                    width = if (sLandscape) 1.5.dp else 1.dp,
+                                    color = if (sLandscape) currentTheme.primary else currentTheme.primary.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { viewModel.updateAppOrientation("landscape") }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "📐", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Hanafi",
-                                    fontSize = 11.sp,
+                                    text = "Landscape Mode",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (school == 1) Color.White else currentTheme.textSub
+                                    color = if (sLandscape) currentTheme.primary else currentTheme.textOnBg
                                 )
                             }
                         }
@@ -2010,73 +1977,41 @@ fun AmbientSettingsPopup(
 
                     Divider(color = currentTheme.primary.copy(alpha = 0.1f))
 
-                    // 4. Azan audio toggler
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Play Azan Voice Notification",
-                                fontSize = 13.sp,
-                                color = currentTheme.textOnBg,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(text = "Triggers holy Azan audio at prayer minutes.", fontSize = 10.sp, color = currentTheme.textSub)
-                        }
-
-                        Switch(
-                            checked = azanOn,
-                            onCheckedChange = { viewModel.toggleAzan(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = currentTheme.primary
-                            )
-                        )
-                    }
-
-                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
-
-                    // 5. GitHub Updates Configuration
+                    // 2. Application Update Module: Check for Updates
                     Text(
-                        text = "🚀 SYSTEM UPDATES",
+                        text = "🚀 SYSTEM SERVICE",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = currentTheme.primary,
                         letterSpacing = 1.5.sp
                     )
-
-                    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsStateWithLifecycle()
-                    val updateAvailableVal by viewModel.updateAvailable.collectAsStateWithLifecycle()
-                    val latestVersionNameVal by viewModel.latestVersionName.collectAsStateWithLifecycle()
-                    val updateErrorMessage by viewModel.updateErrorMessage.collectAsStateWithLifecycle()
 
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(currentTheme.primary.copy(alpha = 0.04f))
-                            .padding(10.dp),
+                            .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "Check for new compiled application builds from GitHub (htvusa/localprayertime):",
-                            fontSize = 11.sp,
-                            color = currentTheme.textSub
-                        )
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "Stable version update",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = currentTheme.textOnBg
-                            )
+                            Column {
+                                Text(
+                                    text = "Check for Updates",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg
+                                )
+                                Text(
+                                    text = "Verify if newer application builds are available.",
+                                    fontSize = 10.sp,
+                                    color = currentTheme.textSub
+                                )
+                            }
 
                             if (isCheckingUpdate) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2091,16 +2026,16 @@ fun AmbientSettingsPopup(
                             } else {
                                 Button(
                                     onClick = { viewModel.checkGitHubUpdates(manuallyTriggered = true) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary.copy(alpha = 0.15f)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
                                     shape = RoundedCornerShape(8.dp),
                                     modifier = Modifier.height(36.dp)
                                 ) {
-                                    Text("Check Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                    Text("Check Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
                         }
 
-                        // Status notification info block
+                        // Status notification card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
@@ -2136,7 +2071,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date",
+                                        text = "✓ App is up-to-date (v1.3)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
@@ -2144,23 +2079,18 @@ fun AmbientSettingsPopup(
                             }
                         }
                     }
-                }
 
-                // Bottom CTA Save
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary)
-                ) {
-                    Text(
-                        text = "✦ Save Settings",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        letterSpacing = 1.sp
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Close CTA
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = currentTheme.primary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(text = "Close Settings", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             }
         }
