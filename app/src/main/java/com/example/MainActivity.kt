@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -631,8 +632,8 @@ fun SidebarColumn(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "🌡 Weather",
-                        fontSize = 11.sp,
+                        text = "🌡",
+                        fontSize = 13.sp,
                         color = currentTheme.textSub,
                         fontWeight = FontWeight.Bold
                     )
@@ -1092,6 +1093,7 @@ fun CalendarWeekStripWidget(viewModel: MainViewModel, currentTheme: PrayerTheme)
 @Composable
 fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val prayersList by viewModel.prayers.collectAsStateWithLifecycle()
+    val textSizePreference by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
 
     if (prayersList.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1120,6 +1122,7 @@ fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme
                 isNow = isNow,
                 isDone = isDone,
                 currentTheme = currentTheme,
+                textSizePreference = textSizePreference,
                 modifier = Modifier.fillMaxHeight()
             )
         }
@@ -1129,6 +1132,7 @@ fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme
 @Composable
 fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val prayersList by viewModel.prayers.collectAsStateWithLifecycle()
+    val textSizePreference by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
 
     if (prayersList.isEmpty()) {
         Box(
@@ -1156,6 +1160,7 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
                 isNow = isNow,
                 isDone = isDone,
                 currentTheme = currentTheme,
+                textSizePreference = textSizePreference,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1168,6 +1173,7 @@ fun PrayerCardItem(
     isNow: Boolean,
     isDone: Boolean,
     currentTheme: PrayerTheme,
+    textSizePreference: String = "large",
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(14.dp)
@@ -1242,20 +1248,50 @@ fun PrayerCardItem(
             val dispH = if (rawH % 12 == 0) 12 else rawH % 12
             val ap = if (rawH >= 12) "PM" else "AM"
 
+            val initialSize = when (textSizePreference) {
+                "normal" -> 32.sp
+                "large" -> 42.sp
+                "extra_large" -> 52.sp
+                "huge" -> 64.sp
+                else -> 42.sp
+            }
+            val amPmSize = when (textSizePreference) {
+                "normal" -> 10.sp
+                "large" -> 12.sp
+                "extra_large" -> 14.sp
+                "huge" -> 16.sp
+                else -> 12.sp
+            }
+
+            var sizeState by remember(textSizePreference) { mutableStateOf(initialSize) }
+            var readyToDraw by remember(textSizePreference) { mutableStateOf(false) }
+
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = String.format(Locale.US, "%d:%s", dispH, mString),
                     fontFamily = FontFamily.Serif,
-                    fontSize = 32.sp,
+                    fontSize = sizeState,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    onTextLayout = { textLayoutResult ->
+                        if (textLayoutResult.hasVisualOverflow && sizeState.value > 16f) {
+                            sizeState = (sizeState.value * 0.9f).sp
+                        } else {
+                            readyToDraw = true
+                        }
+                    },
+                    modifier = Modifier.drawWithContent {
+                        if (readyToDraw) drawContent()
+                    },
                     color = if (isNow) currentTheme.primaryVariant else currentTheme.textOnBg
                 )
                 Text(
                     text = " $ap",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Light,
-                    color = currentTheme.textSub,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    fontSize = amPmSize,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isNow) currentTheme.primary else currentTheme.textSub,
+                    modifier = Modifier.padding(bottom = (sizeState.value * 0.15f).coerceAtMost(10f).dp)
                 )
             }
         }
@@ -1727,6 +1763,76 @@ fun AmbientSettingsPopup(
                             ),
                             modifier = Modifier.testTag("dialog_stay_awake_switch")
                         )
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // Prayer Time Readability Text Size (ACCESSIBILITY FOR ELDERLY)
+                    Text(
+                        text = "🔎 PRAYER TIME READABILITY",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+                    
+                    val currentTextSizePref by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.08f))
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(0.43f).padding(end = 4.dp)) {
+                            Text(
+                                text = "Prayer Font Size",
+                                fontSize = 13.sp,
+                                color = currentTheme.textOnBg,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Provides giant, highly legible clock sizes optimized for older readers.",
+                                fontSize = 10.sp,
+                                color = currentTheme.textSub
+                            )
+                        }
+                        
+                        Row(
+                            modifier = Modifier
+                                .weight(0.57f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(currentTheme.surface)
+                                .padding(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            listOf(
+                                "normal" to "Normal",
+                                "large" to "Large",
+                                "extra_large" to "X-Large",
+                                "huge" to "Giant"
+                            ).forEach { (key, label) ->
+                                val isSelected = key == currentTextSizePref
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSelected) currentTheme.primary else Color.Transparent)
+                                        .clickable { viewModel.updatePrayerTimeTextSize(key) }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else currentTheme.textOnBg
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Divider(color = currentTheme.primary.copy(alpha = 0.1f))

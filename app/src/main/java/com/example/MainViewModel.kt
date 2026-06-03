@@ -65,6 +65,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _stayAwake = MutableStateFlow(prefs.getBoolean("stay_awake", true)) // stay awake default true
     val stayAwake: StateFlow<Boolean> = _stayAwake.asStateFlow()
 
+    private val _prayerTimeTextSize = MutableStateFlow(prefs.getString("prayer_time_text_size", "large") ?: "large")
+    val prayerTimeTextSize: StateFlow<String> = _prayerTimeTextSize.asStateFlow()
+
     // ── GitHub Auto Update Configuration ──
     private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "htvusa") ?: "htvusa")
     val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
@@ -245,6 +248,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _stayAwake.value = on
         prefs.edit().putBoolean("stay_awake", on).apply()
         viewModelScope.launch { _uiEvents.emit(if (on) "Stay awake activated" else "Stay awake deactivated") }
+    }
+
+    fun updatePrayerTimeTextSize(newSize: String) {
+        _prayerTimeTextSize.value = newSize
+        prefs.edit().putString("prayer_time_text_size", newSize).apply()
+        viewModelScope.launch { _uiEvents.emit("Prayer time font size updated to $newSize") }
     }
 
     fun changeSelectedDate(date: LocalDate) {
