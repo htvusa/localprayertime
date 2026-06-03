@@ -223,15 +223,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun getGithubPat(): String {
-        val pat = if (BuildConfig.GITHUB_PAT.isNotBlank() && BuildConfig.GITHUB_PAT != "placeholder_token") {
-            BuildConfig.GITHUB_PAT
-        } else {
-            "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"
-        }
-        return pat.trim()
-    }
-
     // Update settings securely
     fun updateTheme(newTheme: String) {
         _theme.value = newTheme
@@ -588,7 +579,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 azanPlayer?.release()
-                val url = "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3"
+                val url = "https://raw.githubusercontent.com/jm7867/pa/master/azan.mp3"
                 Log.d("MediaPlayer", "Streaming Azan audio from: $url")
                 
                 MediaPlayer().apply {
@@ -598,7 +589,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .build()
                     )
-                    setDataSource(context, android.net.Uri.parse(url), mapOf("Authorization" to "token ${getGithubPat()}"))
+                    setDataSource(url)
                     prepare()
                     start()
                     azanPlayer = this
@@ -634,7 +625,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 quranPlayer = null
 
                 val fileCode = String.format(Locale.US, "%03d", finalIdx)
-                val url = "https://raw.githubusercontent.com/htvusa/pa/master/quran/$fileCode.mp3"
+                val url = "https://raw.githubusercontent.com/jm7867/pa/master/quran/$fileCode.mp3"
                 Log.d("MediaPlayer", "Streaming quran audio from: $url")
 
                 MediaPlayer().apply {
@@ -644,7 +635,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .build()
                     )
-                    setDataSource(context, android.net.Uri.parse(url), mapOf("Authorization" to "token ${getGithubPat()}"))
+                    setDataSource(url)
                     prepareAsync()
                     setOnPreparedListener { mp ->
                         val vol = _quranVolume.value
@@ -722,11 +713,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun fetchBackupNasheedManifest() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = "https://raw.githubusercontent.com/htvusa/pa/master/nashed/manifest.json"
-                val request = Request.Builder()
-                    .url(url)
-                    .header("Authorization", "token ${getGithubPat()}")
-                    .build()
+                val url = "https://raw.githubusercontent.com/jm7867/pa/master/nashed/manifest.json"
+                val request = Request.Builder().url(url).build()
                 httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful && response.body != null) {
                         val bodyString = response.body!!.string()
@@ -740,7 +728,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     .replace(Regex("[_\\-]+"), " ")
                                     .replace(Regex("\\b\\w")) { it.value.uppercase(Locale.US) }
                                     .trim()
-                                NasheedTrack("https://raw.githubusercontent.com/htvusa/pa/master/nashed/$cleanName", title)
+                                NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/$cleanName", title)
                             }
                             _nasheedTracks.value = mapped
                             return@launch
@@ -757,9 +745,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun produceFallbackNasheedsList() {
         val defaultList = listOf(
-            NasheedTrack("https://raw.githubusercontent.com/htvusa/pa/master/nashed/001%20Kun%20Anta.mp3", "Kun Anta"),
-            NasheedTrack("https://raw.githubusercontent.com/htvusa/pa/master/nashed/002%20Omer%20Faruk.mp3", "Omer Faruk"),
-            NasheedTrack("https://raw.githubusercontent.com/htvusa/pa/master/nashed/003%20Subhan%20Allah.mp3", "Subhan Allah")
+            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/001%20Kun%20Anta.mp3", "Kun Anta"),
+            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/002%20Omer%20Faruk.mp3", "Omer Faruk"),
+            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/003%20Subhan%20Allah.mp3", "Subhan Allah")
         )
         _nasheedTracks.value = defaultList
     }
@@ -792,7 +780,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .build()
                     )
-                    setDataSource(context, android.net.Uri.parse(track.file), mapOf("Authorization" to "token ${getGithubPat()}"))
+                    setDataSource(track.file)
                     prepareAsync()
                     setOnPreparedListener { mp ->
                         val vol = _nasheedVolume.value
@@ -912,7 +900,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "Android-Prayer-Scheduler-Update-Checker")
-                    .header("Authorization", "token ${getGithubPat()}")
                     .build()
 
                 httpClient.newCall(request).execute().use { response ->
@@ -997,7 +984,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val request = Request.Builder()
                     .url(apkUrl)
                     .header("User-Agent", "Android-Prayer-Scheduler-Downloader")
-                    .header("Authorization", "token ${getGithubPat()}")
                     .build()
 
                 httpClient.newCall(request).execute().use { response ->
