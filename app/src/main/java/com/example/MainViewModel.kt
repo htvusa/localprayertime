@@ -577,27 +577,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Play Azan MP3 file via direct MediaPlayer stream
     private fun triggerAzanMediaAudio() {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                azanPlayer?.release()
-                val url = "https://raw.githubusercontent.com/jm7867/pa/master/azan.mp3"
-                Log.d("MediaPlayer", "Streaming Azan audio from: $url")
-                
-                MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .build()
-                    )
-                    setDataSource(url)
-                    prepare()
-                    start()
-                    azanPlayer = this
+            azanPlayer?.release()
+            azanPlayer = null
+
+            val urls = listOf(
+                "https://raw.githubusercontent.com/jm7867/pa/master/azan.mp3",
+                "https://www.islamcan.com/audio/azan/rema.mp3",
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            )
+
+            for (url in urls) {
+                try {
+                    Log.d("MediaPlayer", "Streaming Azan audio from: $url")
+                    val player = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
+                        setDataSource(url)
+                        prepare()
+                        start()
+                    }
+                    azanPlayer = player
+                    _uiEvents.emit("Azan activated at prayer time!")
+                    return@launch
+                } catch (e: Exception) {
+                    Log.e("MediaPlayer", "Failed playing azan audio streaming from $url, trying next...", e)
                 }
-                _uiEvents.emit("Azan activated at prayer time!")
-            } catch (e: Exception) {
-                Log.e("MediaPlayer", "Failed playing azan audio streaming", e)
             }
+            Log.e("MediaPlayer", "All Azan streaming URLs failed.")
         }
     }
 
@@ -614,56 +624,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putInt("quran_surah_idx", finalIdx).apply()
 
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                viewModelScope.launch { 
-                    _quranStatus.value = "Loading Surah..."
-                    _quranProgress.value = 0f
-                }
-                
-                quranPlayer?.stop()
-                quranPlayer?.release()
-                quranPlayer = null
+            viewModelScope.launch { 
+                _quranStatus.value = "Loading Surah..."
+                _quranProgress.value = 0f
+            }
+            
+            quranPlayer?.stop()
+            quranPlayer?.release()
+            quranPlayer = null
 
-                val fileCode = String.format(Locale.US, "%03d", finalIdx)
-                val url = "https://raw.githubusercontent.com/jm7867/pa/master/quran/$fileCode.mp3"
-                Log.d("MediaPlayer", "Streaming quran audio from: $url")
+            val fileCode = String.format(Locale.US, "%03d", finalIdx)
+            val urls = listOf(
+                "https://raw.githubusercontent.com/jm7867/pa/master/quran/$fileCode.mp3",
+                "https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/$fileCode.mp3"
+            )
 
-                MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .build()
-                    )
-                    setDataSource(url)
-                    prepareAsync()
-                    setOnPreparedListener { mp ->
-                        val vol = _quranVolume.value
-                        mp.setVolume(vol, vol)
-                        mp.start()
-                        viewModelScope.launch {
-                            _quranStatus.value = "Playing"
-                            _quranIsPlaying.value = true
-                        }
-                        trackPlayerProgress()
+            for (url in urls) {
+                try {
+                    Log.d("MediaPlayer", "Streaming quran audio from: $url")
+                    val player = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
+                        setDataSource(url)
+                        prepare()
                     }
-                    setOnCompletionListener {
+                    
+                    val vol = _quranVolume.value
+                    player.setVolume(vol, vol)
+                    player.start()
+                    
+                    quranPlayer = player
+                    viewModelScope.launch {
+                        _quranStatus.value = "Playing"
+                        _quranIsPlaying.value = true
+                    }
+                    
+                    player.setOnCompletionListener {
                         viewModelScope.launch {
                             _quranIsPlaying.value = false
                             _quranProgress.value = 0f
-                            // Play next surah automatically
                             playQuranNext()
                         }
                     }
-                    setOnErrorListener { _, _, _ ->
-                        viewModelScope.launch { _quranStatus.value = "Failed streaming" }
+                    player.setOnErrorListener { _, _, _ ->
+                        viewModelScope.launch { _quranStatus.value = "Playback failure" }
                         true
                     }
-                    quranPlayer = this
+                    
+                    trackPlayerProgress()
+                    return@launch
+                } catch (e: Exception) {
+                    Log.e("MediaPlayer", "Failed starting quran surah player from $url, trying next...", e)
                 }
-            } catch (e: Exception) {
-                Log.e("MediaPlayer", "Failed starting quran surah player", e)
-                _quranStatus.value = "Playback error"
+            }
+            viewModelScope.launch {
+                _quranStatus.value = "Failed streaming"
             }
         }
     }
@@ -745,9 +764,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun produceFallbackNasheedsList() {
         val defaultList = listOf(
-            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/001%20Kun%20Anta.mp3", "Kun Anta"),
-            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/002%20Omer%20Faruk.mp3", "Omer Faruk"),
-            NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/003%20Subhan%20Allah.mp3", "Subhan Allah")
+            NasheedTrack("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/001.mp3", "Surah Al-Fatihah"),
+            NasheedTrack("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/112.mp3", "Surah Al-Ikhlas"),
+            NasheedTrack("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/113.mp3", "Surah Al-Falaq"),
+            NasheedTrack("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/114.mp3", "Surah An-Nas")
         )
         _nasheedTracks.value = defaultList
     }
@@ -760,20 +780,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putInt("nasheed_idx", finalIdx).apply()
 
         viewModelScope.launch(Dispatchers.IO) {
+            viewModelScope.launch {
+                _nasheedStatus.value = "Loading track..."
+                _nasheedProgress.value = 0f
+            }
+
+            nasheedPlayer?.stop()
+            nasheedPlayer?.release()
+            nasheedPlayer = null
+
+            val track = tracks[finalIdx]
+            Log.d("MediaPlayer", "Streaming Nasheed audio from: ${track.file}")
+
             try {
-                viewModelScope.launch {
-                    _nasheedStatus.value = "Loading track..."
-                    _nasheedProgress.value = 0f
-                }
-
-                nasheedPlayer?.stop()
-                nasheedPlayer?.release()
-                nasheedPlayer = null
-
-                val track = tracks[finalIdx]
-                Log.d("MediaPlayer", "Streaming Nasheed audio from: ${track.file}")
-
-                MediaPlayer().apply {
+                val player = MediaPlayer().apply {
                     setAudioAttributes(
                         AudioAttributes.Builder()
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -781,34 +801,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             .build()
                     )
                     setDataSource(track.file)
-                    prepareAsync()
-                    setOnPreparedListener { mp ->
-                        val vol = _nasheedVolume.value
-                        mp.setVolume(vol, vol)
-                        mp.start()
-                        viewModelScope.launch {
-                            _nasheedStatus.value = "${finalIdx + 1} / ${tracks.size}"
-                            _nasheedIsPlaying.value = true
-                        }
-                        trackPlayerProgress()
-                    }
-                    setOnCompletionListener {
-                        viewModelScope.launch {
-                            _nasheedIsPlaying.value = false
-                            _nasheedProgress.value = 0f
-                            // Play next nasheed automatically
-                            playNasheedNext()
-                        }
-                    }
-                    setOnErrorListener { _, _, _ ->
-                        viewModelScope.launch { _nasheedStatus.value = "Unavailable" }
-                        true
-                    }
-                    nasheedPlayer = this
+                    prepare()
                 }
+
+                val vol = _nasheedVolume.value
+                player.setVolume(vol, vol)
+                player.start()
+
+                nasheedPlayer = player
+                viewModelScope.launch {
+                    _nasheedStatus.value = "${finalIdx + 1} / ${tracks.size}"
+                    _nasheedIsPlaying.value = true
+                }
+
+                player.setOnCompletionListener {
+                    viewModelScope.launch {
+                        _nasheedIsPlaying.value = false
+                        _nasheedProgress.value = 0f
+                        playNasheedNext()
+                    }
+                }
+                player.setOnErrorListener { _, _, _ ->
+                    viewModelScope.launch { _nasheedStatus.value = "Unavailable" }
+                    true
+                }
+
+                trackPlayerProgress()
             } catch (e: Exception) {
-                Log.e("MediaPlayer", "Failed playing nasheed stream", e)
-                _nasheedStatus.value = "Playback error"
+                Log.e("MediaPlayer", "Failed playing nasheed stream for ${track.file}", e)
+                viewModelScope.launch {
+                    _nasheedStatus.value = "Playback error"
+                }
             }
         }
     }
