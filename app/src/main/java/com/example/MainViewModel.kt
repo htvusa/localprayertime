@@ -495,7 +495,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Smooth daily reload at/after 12:01 AM so the user doesn't need to reopen the app
                 val systemDate = LocalDate.now()
                 val systemTime = LocalTime.now()
-                if (systemDate != _selectedDate.value && !systemTime.isBefore(LocalTime.of(0, 1))) {
+                val isResetJobActive = dateResetJob?.isActive == true
+                if (!isResetJobActive && systemDate != _selectedDate.value && !systemTime.isBefore(LocalTime.of(0, 1))) {
                     Log.d("DailyReload", "Smooth daily reload initiated at 12:01 AM or later")
                     _selectedDate.value = systemDate
                     updateSchedules()
