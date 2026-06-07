@@ -258,6 +258,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var countdownJob: Job? = null
     private var trackingJob: Job? = null
     private var progressTrackerJob: Job? = null
+    private var refresh30SecondsJob: Job? = null
     private var lastPlayedAzanKey: String? = null
 
     init {
@@ -267,6 +268,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Prepare primary countdown and tracker loop
         startCountdownTimer()
         startPeriodicCheckers()
+        start30SecondsRefreshTimer()
         
         // Initial prayer, weather extraction and nasheeds fetching
         fetchBackupNasheedManifest()
@@ -563,6 +565,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _selectedDate.value = systemDate
                     updateSchedules()
                     fetchWeatherDetails()
+                    // Fetch latest masjid jamat times at 12:01 AM rollover as well
+                    val currentUser = _subscribedUser.value
+                    if (currentUser.isNotEmpty()) {
+                        connectMasjidUsername(currentUser, silent = true)
+                    }
                 }
 
                 delay(1000)
@@ -582,6 +589,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     checkGitHubUpdates(manuallyTriggered = false)
                 } catch (e: Exception) {
                     // Ignore background check errors
+                }
+            }
+        }
+    }
+
+    private fun start30SecondsRefreshTimer() {
+        refresh30SecondsJob?.cancel()
+        refresh30SecondsJob = viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                delay(30000) // Refresh precisely every 30 seconds
+                try {
+                    // Refresh both base schedules and subscribed masjid jamat times
+                    updateSchedules()
+                    
+                    val currentUser = _subscribedUser.value
+                    if (currentUser.isNotEmpty()) {
+                        connectMasjidUsername(currentUser, silent = true)
+                    }
+                } catch (e: Exception) {
+                    Log.e("30sRefresher", "Error checking for updates in background: ${e.message}")
                 }
             }
         }
