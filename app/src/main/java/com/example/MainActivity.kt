@@ -1250,6 +1250,7 @@ fun CalendarWeekStripWidget(viewModel: MainViewModel, currentTheme: PrayerTheme)
 fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val prayersList by viewModel.prayers.collectAsStateWithLifecycle()
     val textSizePreference by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
+    val activePrayer by viewModel.currentPrayer.collectAsStateWithLifecycle()
 
     if (prayersList.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1259,6 +1260,7 @@ fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme
     }
 
     val now = ZonedDateTime.now()
+    val active = activePrayer
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
@@ -1267,11 +1269,13 @@ fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(prayersList) { prayer ->
-            // Calculate Active / Now highlights matching Javascript rules
-            val idx = prayersList.indexOf(prayer)
-            val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-            val isNow = now.isAfter(prayer.time) && (next == null || now.isBefore(next.time))
-            val isDone = !isNow && now.isAfter(prayer.time)
+            // Calculate Active / Now highlights using StateFlow-backed activePrayer
+            val isNow = active?.key == prayer.key
+            val isDone = if (active != null) {
+                !isNow && prayer.time.isBefore(active.time)
+            } else {
+                now.isAfter(prayer.time)
+            }
 
             PrayerCardItem(
                 prayer = prayer,
@@ -1289,6 +1293,7 @@ fun PrayersLandscapeGridView(viewModel: MainViewModel, currentTheme: PrayerTheme
 fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val prayersList by viewModel.prayers.collectAsStateWithLifecycle()
     val textSizePreference by viewModel.prayerTimeTextSize.collectAsStateWithLifecycle()
+    val activePrayer by viewModel.currentPrayer.collectAsStateWithLifecycle()
 
     if (prayersList.isEmpty()) {
         Box(
@@ -1301,6 +1306,7 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
     }
 
     val now = ZonedDateTime.now()
+    val active = activePrayer
     val targetKeys = listOf("Imsak", "Fajr", "Sunrise", "Ishraq", "Dhuhr", "Asr", "Maghrib", "Isha")
     val finalPrayers = prayersList.filter { it.key in targetKeys }
 
@@ -1319,10 +1325,12 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         val p = finalPrayers[firstIdx]
-                        val idx = prayersList.indexOf(p)
-                        val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                        val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                        val isDone = !isNow && now.isAfter(p.time)
+                        val isNow = active?.key == p.key
+                        val isDone = if (active != null) {
+                            !isNow && p.time.isBefore(active.time)
+                        } else {
+                            now.isAfter(p.time)
+                        }
                         PrayerCardItem(
                             prayer = p,
                             isNow = isNow,
@@ -1335,10 +1343,12 @@ fun MobileSchedulesVertical(viewModel: MainViewModel, currentTheme: PrayerTheme)
                     Box(modifier = Modifier.weight(1f)) {
                         if (secondIdx < finalPrayers.size) {
                             val p = finalPrayers[secondIdx]
-                            val idx = prayersList.indexOf(p)
-                            val next = if (idx + 1 < prayersList.size) prayersList[idx + 1] else null
-                            val isNow = now.isAfter(p.time) && (next == null || now.isBefore(next.time))
-                            val isDone = !isNow && now.isAfter(p.time)
+                            val isNow = active?.key == p.key
+                            val isDone = if (active != null) {
+                                !isNow && p.time.isBefore(active.time)
+                            } else {
+                                now.isAfter(p.time)
+                            }
                             PrayerCardItem(
                                 prayer = p,
                                 isNow = isNow,
