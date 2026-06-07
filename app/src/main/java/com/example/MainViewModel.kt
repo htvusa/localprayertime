@@ -234,6 +234,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _masjidUsers = MutableStateFlow<List<MasjidUser>>(emptyList())
     val masjidUsers: StateFlow<List<MasjidUser>> = _masjidUsers.asStateFlow()
 
+    private val _slidesList = MutableStateFlow<List<String>>(emptyList())
+    val slidesList: StateFlow<List<String>> = _slidesList.asStateFlow()
+
+    private val _slidesLoading = MutableStateFlow(false)
+    val slidesLoading: StateFlow<Boolean> = _slidesLoading.asStateFlow()
+
     private val _masjidLoading = MutableStateFlow(false)
     val masjidLoading: StateFlow<Boolean> = _masjidLoading.asStateFlow()
 
@@ -264,6 +270,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // Initial load of subscribed masjid data
         refreshSubscribedMasjidData()
+        syncSlides()
 
         // Prepare primary countdown and tracker loop
         startCountdownTimer()
@@ -606,6 +613,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val currentUser = _subscribedUser.value
                     if (currentUser.isNotEmpty()) {
                         connectMasjidUsername(currentUser, silent = true)
+                        syncSlides()
                     }
                 } catch (e: Exception) {
                     Log.e("30sRefresher", "Error checking for updates in background: ${e.message}")
@@ -1258,6 +1266,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             _masjidStatusMessage.value = "Connected as $cleanUser"
                             _masjidStatusType.value = "ok"
                             refreshSubscribedMasjidData()
+                            syncSlides()
                         } else {
                             _masjidStatusMessage.value = "User not found or API error"
                             _masjidStatusType.value = "err"
@@ -1277,6 +1286,93 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun syncSlides() {
+        val username = _subscribedUser.value
+        if (username.isEmpty()) {
+            _slidesList.value = emptyList()
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            _slidesLoading.value = true
+            try {
+                val url = "https://daarulhikmahny.org/lapp/slides.php?api_key=dhny-display-2025&username=$username&_=${System.currentTimeMillis()}"
+                val request = Request.Builder()
+                    .url(url)
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful && response.body != null) {
+                        val bodyString = response.body!!.string()
+                        Log.d("syncSlides", "Response string: $bodyString")
+                        
+                        val list = mutableListOf<String>()
+                        try {
+                            val type = com.squareup.moshi.Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+                            val adapter = moshi.adapter<Map<String, Any>>(type)
+                            val resMap = adapter.fromJson(bodyString)
+                            if (resMap != null && (resMap["success"] == true || resMap["success"] == "true")) {
+                                val rawSlides = resMap["slides"] ?: resMap["data"] ?: resMap["images"]
+                                if (rawSlides is List<*>) {
+                                    for (item in rawSlides) {
+                                        if (item is String) {
+                                            list.add(item)
+                                        } else if (item is Map<*, *>) {
+                                            val urlVal = (item["url"] ?: item["image"] ?: item["file"] ?: item["src"])?.toString()
+                                            if (!urlVal.isNullOrEmpty()) {
+                                                list.add(urlVal)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("syncSlides", "Error parsing map: ${e.message}")
+                        }
+
+                        if (list.isEmpty()) {
+                            try {
+                                val listType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
+                                val listAdapter = moshi.adapter<List<String>>(listType)
+                                val parsedList = listAdapter.fromJson(bodyString)
+                                if (parsedList != null) {
+                                    list.addAll(parsedList)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("syncSlides", "Error parsing list: ${e.message}")
+                            }
+                        }
+
+                        if (list.isEmpty() && !bodyString.trim().startsWith("{") && !bodyString.trim().startsWith("[")) {
+                            bodyString.split("\n").map { it.trim() }.filter { it.isNotEmpty() && (it.startsWith("http") || it.contains(".")) }.forEach {
+                                list.add(it)
+                            }
+                        }
+
+                        val cleanList = list.map { rawUrl ->
+                            var urlStr = rawUrl.trim()
+                            if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
+                                urlStr = "https://daarulhikmahny.org/lapp/$urlStr"
+                            }
+                            if (urlStr.contains("?")) {
+                                "$urlStr&_=${System.currentTimeMillis()}"
+                            } else {
+                                "$urlStr?_=${System.currentTimeMillis()}"
+                            }
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            _slidesList.value = cleanList
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("syncSlides", "Error fetching slides: ${e.message}", e)
+            } finally {
+                _slidesLoading.value = false
+            }
+        }
+    }
+
     fun clearSubscribedMasjidFields() {
         val editor = prefs.edit()
         prefs.all.keys.filter { it.startsWith("sub_masjid_field_") }.forEach {
@@ -1284,6 +1380,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         editor.apply()
         _subscribedData.value = emptyMap()
+        _slidesList.value = emptyList()
     }
 
     fun removeMasjidFromHistory(user: String) {

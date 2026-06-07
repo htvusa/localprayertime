@@ -28,9 +28,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import java.util.TimeZone
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -327,16 +324,16 @@ fun MainAppLayout(
                 else -> maxWidth > maxHeight
             }
 
-            val azanOn by viewModel.azanOn.collectAsStateWithLifecycle()
+            var mainActiveTab by remember { mutableStateOf("local") } // "local" or "masjid"
 
             Column(modifier = Modifier.fillMaxSize()) {
-                // Unified Header Bar (labeled "Local Prayer Times" instead of "Prayer Portal")
+                // Main application Tab bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(currentTheme.surface.copy(alpha = 0.85f))
                         .border(width = 1.dp, color = currentTheme.primary.copy(alpha = 0.08f))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -346,51 +343,143 @@ fun MainAppLayout(
                             fontSize = 24.sp,
                             color = currentTheme.primaryVariant,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = 6.dp)
                         )
                         Text(
                             text = "Local Prayer Times",
                             fontFamily = FontFamily.Serif,
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = currentTheme.textOnBg
                         )
                     }
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Sound switch indicator
-                        IconButton(
-                            onClick = { viewModel.toggleAzan(!azanOn) },
-                            modifier = Modifier.size(36.dp)
+                        // Tab 1 Button
+                        Row(
+                            modifier = Modifier
+                                .background(
+                                    color = if (mainActiveTab == "local") currentTheme.primary else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { mainActiveTab = "local" }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (azanOn) Icons.Default.VolumeUp else Icons.Default.VolumeMute,
-                                contentDescription = "Toggle Azan",
-                                tint = if (azanOn) currentTheme.primary else currentTheme.textMuted,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = if (mainActiveTab == "local") Color.White else currentTheme.textMuted,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Local Prayer Times",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (mainActiveTab == "local") Color.White else currentTheme.textSub
                             )
                         }
 
-                        // App Settings button
-                        IconButton(
-                            onClick = { isSettingsOpen = true },
-                            modifier = Modifier.size(36.dp)
+                        // Tab 2 Button
+                        Row(
+                            modifier = Modifier
+                                .background(
+                                    color = if (mainActiveTab == "masjid") currentTheme.primary else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { mainActiveTab = "masjid" }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = currentTheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = Icons.Default.Home,
+                                contentDescription = null,
+                                tint = if (mainActiveTab == "masjid") Color.White else currentTheme.textMuted,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Subscribe Masjid",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (mainActiveTab == "masjid") Color.White else currentTheme.textSub
                             )
                         }
                     }
                 }
 
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    SubscribeMasjidView(viewModel = viewModel, currentTheme = currentTheme)
+                    if (mainActiveTab == "local") {
+                        if (isLandscape) {
+                            // Two-column Split Landscape layout for Tablets
+                            Row(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                // Left Column: Interactive Sidebar control panel
+                                SidebarColumn(
+                                    viewModel = viewModel,
+                                    currentTheme = currentTheme,
+                                    onOpenSettings = { isSettingsOpen = true },
+                                    modifier = Modifier
+                                        .width(320.dp)
+                                        .fillMaxHeight()
+                                        .border(width = 1.dp, color = currentTheme.primary.copy(alpha = 0.15f))
+                                )
+
+                                // Right Column: Active Prayer Grids and Media systems
+                                MainContentColumn(
+                                    viewModel = viewModel,
+                                    currentTheme = currentTheme,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(20.dp)
+                                )
+                            }
+                        } else {
+                            // Stacked Scroll Layout for Mobile Portrait
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(16.dp)
+                            ) {
+                                // Top header block with brand banner
+                                BrandHeader(viewModel = viewModel, currentTheme = currentTheme, onOpenSettings = { isSettingsOpen = true })
+                                
+                                Spacer(modifier = Modifier.height(14.dp))
+                                
+                                // Time & Date section on the left side, Current Weather section on the right side
+                                TimeAndWeatherRow(viewModel = viewModel, currentTheme = currentTheme)
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+
+
+                                MobileSchedulesVertical(viewModel = viewModel, currentTheme = currentTheme)
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Media systems
+                                InlineAudioCompanionWidget(viewModel = viewModel, currentTheme = currentTheme)
+                            }
+                        }
+                    } else {
+                        // Tab 2: Subscribe Masjid content (vertical scrollable)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            SubscribeMasjidView(viewModel = viewModel, currentTheme = currentTheme)
+                        }
+                    }
                 }
             }
         }
@@ -599,29 +688,7 @@ fun SidebarColumn(
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // App Identity Brand Banner
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "☽ ",
-                fontSize = 22.sp,
-                color = currentTheme.primaryVariant,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Local Prayer Times",
-                fontFamily = FontFamily.Serif,
-                fontSize = 18.sp,
-                color = currentTheme.textOnBg,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp
-            )
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
 
         // Big Digital Clock Clock with dynamic ticker
         LiveAwesomeClockWidget(currentTheme = currentTheme)
@@ -750,22 +817,7 @@ fun MainContentColumn(
     Column(
         modifier = modifier
     ) {
-        // Today schedule heading
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Today's Schedules",
-                fontFamily = FontFamily.Serif,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = currentTheme.primaryVariant,
-                fontStyle = FontStyle.Italic
-            )
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
 
         // Week Calendar strip selector
         CalendarWeekStripWidget(viewModel = viewModel, currentTheme = currentTheme)
@@ -801,21 +853,7 @@ fun BrandHeader(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "☽ ",
-                    fontSize = 24.sp,
-                    color = currentTheme.primaryVariant,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Local Prayer Times",
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = currentTheme.textOnBg
-                )
-            }
+
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                 Icon(
                     Icons.Default.LocationOn,
@@ -2228,49 +2266,33 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             val noticeText = subscribedData["textscroll"] ?: ""
 
             val activeKey = activePrayer?.key ?: ""
-            val locCity = subscribedData["city"] ?: ""
-            val locState = subscribedData["state"] ?: ""
-            val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
-            val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
-            val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
-
-            val appOrientation by viewModel.appOrientation.collectAsStateWithLifecycle()
             val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-            val isLandscape = when (appOrientation) {
-                "landscape" -> true
-                "portrait" -> false
-                else -> configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            }
+            val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
 
             @Composable
-            fun Box1ContentBlock() {
-                // 1. Masjid Name & Location
+            fun Box1Content() {
+                // 1. App Identity / Brand banner
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = currentTheme.primary.copy(alpha = 0.05f)
+                        containerColor = currentTheme.surface.copy(alpha = 0.5f)
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.2.dp, currentTheme.primary.copy(alpha = 0.15f))
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.2.dp, goldColor.copy(alpha = 0.25f))
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "🕌 ACTIVE SUBSCRIBED MASJID",
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = currentTheme.primaryVariant,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
                             text = subscribedName,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
                             color = currentTheme.textOnBg
                         )
+                        val locCity = subscribedData["city"] ?: ""
+                        val locState = subscribedData["state"] ?: ""
+                        val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
                         if (displayLoc.isNotEmpty()) {
                             Text(
                                 text = "📍 $displayLoc",
@@ -2279,37 +2301,33 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                        
+                        Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+                        
+                        val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
+                        val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🗓️", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = todayGreg,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg
+                                )
+                                Text(
+                                    text = todayHijri,
+                                    fontSize = 9.sp,
+                                    color = currentTheme.textSub,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
 
-                // 2. Today's Date
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(currentTheme.primary.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
-                        .border(0.8.dp, currentTheme.primary.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "🗓️", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = todayGreg,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = currentTheme.textOnBg
-                        )
-                        Text(
-                            text = todayHijri,
-                            fontSize = 10.sp,
-                            color = currentTheme.textSub,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                // 3. All Prayer Times Grid (Fajr, Sunrise, Zuhr, Asr, Maghrib, Isha)
+                // 2. All Prayer Times (Grid)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2348,7 +2366,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     }
                 }
 
-                // 4. Jumu'ah Prayer Times
+                // 3. Jumu'ah Cards
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -2383,36 +2401,38 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     }
                 }
 
-                // 5. Announcements
+                // 4. Announcements
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = currentTheme.surface.copy(alpha = 0.5f)
                     ),
                     border = BorderStroke(
-                        width = 1.dp,
-                        color = goldColor.copy(alpha = 0.25f)
+                        width = 1.2.dp,
+                        color = goldColor.copy(alpha = 0.35f)
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(text = "📢", fontSize = 16.sp)
+                            Text(text = "📢", fontSize = 18.sp)
                             Text(
                                 text = "MASJID BULLETIN & ANNOUNCEMENTS",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace,
                                 color = goldColor,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 1.sp
                             )
                         }
+
+                        Divider(color = currentTheme.primary.copy(alpha = 0.08f))
 
                         if (noticeText.trim().isEmpty() && eventDetails.trim().isEmpty()) {
                             Text(
@@ -2423,13 +2443,13 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 lineHeight = 15.sp
                             )
                         } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (noticeText.trim().isNotEmpty()) {
                                     Text(
                                         text = noticeText,
-                                        fontSize = 11.sp,
+                                        fontSize = 11.5.sp,
                                         color = currentTheme.textOnBg,
-                                        lineHeight = 15.sp,
+                                        lineHeight = 16.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -2448,7 +2468,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                         )
                                         Text(
                                             text = eventDetails,
-                                            fontSize = 11.sp,
+                                            fontSize = 11.2.sp,
                                             color = currentTheme.textOnBg,
                                             lineHeight = 15.sp
                                         )
@@ -2460,152 +2480,45 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 }
             }
 
-            @Composable
-            fun Box2SlideshowBlock() {
-                val slides = listOf(
-                    "https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1590076215667-873d6f00918c?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&q=80&w=800"
-                )
-                val captions = listOf(
-                    "Serene Sanctuary",
-                    "Sacred Devotion",
-                    "Celestial Architecture",
-                    "Glorious Sunset Reflection",
-                    "Magnificent Nature Horizon"
-                )
-                var slideIndex by remember { mutableStateOf(0) }
-                
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        delay(10000) // 10 seconds auto cycle
-                        slideIndex = (slideIndex + 1) % slides.size
-                    }
-                }
+            OrnamentRow(color = currentTheme.primary)
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Crossfade(
-                        targetState = slideIndex,
-                        animationSpec = tween(1500),
-                        modifier = Modifier.fillMaxSize()
-                    ) { targetIndex ->
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(slides[targetIndex])
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = captions[targetIndex],
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    // Deep atmospheric gradient overlay
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.2f),
-                                        Color.Black.copy(alpha = 0.85f)
-                                    ),
-                                    startY = 100f
-                                )
-                            )
-                    )
-
-                    // Overlay caption
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "COMMUNITY HUB SLIDESHOW",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = goldColor,
-                            letterSpacing = 1.2.sp
-                        )
-                        Text(
-                            text = captions[slideIndex],
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 4.dp)
-                        ) {
-                            slides.forEachIndexed { i, _ ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(if (i == slideIndex) 16.dp else 6.dp, 6.dp)
-                                        .background(
-                                            color = if (i == slideIndex) goldColor else Color.White.copy(alpha = 0.35f),
-                                            shape = RoundedCornerShape(3.dp)
-                                        )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (isLandscape) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+            if (isPortrait) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Left Column (Box 1)
-                    Column(
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box1ContentBlock()
-                    }
-
-                    // Right Column (Box 2): Full-size slideshow display area
-                    Card(
-                        modifier = Modifier
-                            .weight(0.9f)
-                            .fillMaxHeight(),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
-                    ) {
-                        Box2SlideshowBlock()
-                    }
+                    Box1Content()
+                    MasjidSlideshowWidget(
+                        viewModel = viewModel,
+                        currentTheme = currentTheme,
+                        modifier = Modifier.height(320.dp)
+                    )
                 }
             } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Box1ContentBlock()
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(280.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+                    Column(
+                        modifier = Modifier.weight(1.1f),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Box2SlideshowBlock()
+                        Box1Content()
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(0.9f)
+                    ) {
+                        MasjidSlideshowWidget(
+                            viewModel = viewModel,
+                            currentTheme = currentTheme,
+                            modifier = Modifier.height(540.dp)
+                        )
                     }
                 }
             }
+
+            OrnamentRow(color = currentTheme.primary.copy(alpha = 0.3f))
         }
 
         // Setting modal popup which implements searching, choosing, connecting, and history records
@@ -2861,16 +2774,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             )
         }
 
-        // Persistent small footer
-        Text(
-            text = "TIMINGS REALTIME SYNCHRONIZED VIA DAARULHIKMAH DISPLAY NETWORK.",
-            fontSize = 8.sp,
-            fontFamily = FontFamily.Monospace,
-            color = currentTheme.textMuted.copy(alpha = 0.4f),
-            lineHeight = 10.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+
     }
 }
 
@@ -3544,3 +3448,112 @@ private fun formatLocalDateTimeTo12H(zdt: ZonedDateTime): String {
 }
 
 // Standard scale modifier is imported from androidx.compose.ui.draw.scale in imports block
+
+@Composable
+fun MasjidSlideshowWidget(
+    viewModel: MainViewModel,
+    currentTheme: PrayerTheme,
+    modifier: Modifier = Modifier
+) {
+    val slides by viewModel.slidesList.collectAsStateWithLifecycle()
+    val loading by viewModel.slidesLoading.collectAsStateWithLifecycle()
+    val subscribedUser by viewModel.subscribedUser.collectAsStateWithLifecycle()
+    val subscribedData by viewModel.subscribedData.collectAsStateWithLifecycle()
+
+    var currentIndex by remember { mutableStateOf(0) }
+
+    // Dynamic rotation interval
+    val rotationIntervalMs = remember(subscribedData) {
+        val intervalSec = subscribedData["slide_interval"]?.toIntOrNull() ?: 8
+        (intervalSec * 1000L).coerceIn(3000L, 30000L)
+    }
+
+    LaunchedEffect(slides, rotationIntervalMs) {
+        if (slides.isNotEmpty()) {
+            while (true) {
+                delay(rotationIntervalMs)
+                currentIndex = (currentIndex + 1) % slides.size
+            }
+        }
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = currentTheme.surface.copy(alpha = 0.4f)),
+        border = BorderStroke(1.5.dp, currentTheme.primary.copy(alpha = 0.2f))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (loading && slides.isEmpty()) {
+                CircularProgressIndicator(
+                    color = currentTheme.primaryVariant,
+                    modifier = Modifier.size(36.dp)
+                )
+            } else if (slides.isEmpty()) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "🖼️",
+                        fontSize = 32.sp
+                    )
+                    Text(
+                        text = "NO SLIDES FOUND",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = currentTheme.textMuted
+                    )
+                    Text(
+                        text = "Realtime synchronized slideshow feed is active but empty.",
+                        fontSize = 10.sp,
+                        color = currentTheme.textSub,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                val safeIndex = if (currentIndex in slides.indices) currentIndex else 0
+                val imageUrl = slides[safeIndex]
+
+                val painter = coil.compose.rememberAsyncImagePainter(
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(true)
+                        .build()
+                )
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        painter = painter,
+                        contentDescription = "Slideshow Image",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                    )
+
+                    // Overlay metadata indicator bubble
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(12.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${safeIndex + 1} / ${slides.size}",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
