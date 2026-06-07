@@ -155,6 +155,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var azanPlayer: MediaPlayer? = null
     private var quranPlayer: MediaPlayer? = null
     private var nasheedPlayer: MediaPlayer? = null
+    private var wazPlayer: MediaPlayer? = null
 
     // Player Track Status
     val surahsList = listOf(
@@ -189,12 +190,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _nasheedProgress = MutableStateFlow(0f)
     val nasheedProgress: StateFlow<Float> = _nasheedProgress.asStateFlow()
 
+    // Waz Player Properties
+    private val _wazTracks = MutableStateFlow<List<WazTrack>>(emptyList())
+    val wazTracks: StateFlow<List<WazTrack>> = _wazTracks.asStateFlow()
+
+    private val _wazIndex = MutableStateFlow(prefs.getInt("waz_idx", 0))
+    val wazIndex: StateFlow<Int> = _wazIndex.asStateFlow()
+
+    private val _wazStatus = MutableStateFlow("Ready")
+    val wazStatus: StateFlow<String> = _wazStatus.asStateFlow()
+
+    private val _wazIsPlaying = MutableStateFlow(false)
+    val wazIsPlaying: StateFlow<Boolean> = _wazIsPlaying.asStateFlow()
+
+    private val _wazProgress = MutableStateFlow(0f)
+    val wazProgress: StateFlow<Float> = _wazProgress.asStateFlow()
+
     // Volume level state for players
     private val _quranVolume = MutableStateFlow(prefs.getFloat("quran_volume", 0.5f))
     val quranVolume: StateFlow<Float> = _quranVolume.asStateFlow()
 
     private val _nasheedVolume = MutableStateFlow(prefs.getFloat("nasheed_volume", 0.5f))
     val nasheedVolume: StateFlow<Float> = _nasheedVolume.asStateFlow()
+
+    private val _wazVolume = MutableStateFlow(prefs.getFloat("waz_volume", 0.5f))
+    val wazVolume: StateFlow<Float> = _wazVolume.asStateFlow()
 
     // ── Active Background Jobs ──
     private var countdownJob: Job? = null
@@ -209,6 +229,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         
         // Initial prayer, weather extraction and nasheeds fetching
         fetchBackupNasheedManifest()
+        fetchWazManifest()
         updateSchedules()
         fetchWeatherDetails()
 
@@ -645,6 +666,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             quranPlayer?.stop()
             quranPlayer?.release()
             quranPlayer = null
+            
+            nasheedPlayer?.stop()
+            nasheedPlayer?.release()
+            nasheedPlayer = null
+            _nasheedIsPlaying.value = false
+            _nasheedStatus.value = "Ready"
+
+            wazPlayer?.stop()
+            wazPlayer?.release()
+            wazPlayer = null
+            _wazIsPlaying.value = false
+            _wazStatus.value = "Ready"
 
             val fileCode = String.format(Locale.US, "%03d", finalIdx)
             val urls = listOf(
@@ -802,6 +835,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             nasheedPlayer?.release()
             nasheedPlayer = null
 
+            quranPlayer?.stop()
+            quranPlayer?.release()
+            quranPlayer = null
+            _quranIsPlaying.value = false
+            _quranStatus.value = "Ready"
+
+            wazPlayer?.stop()
+            wazPlayer?.release()
+            wazPlayer = null
+            _wazIsPlaying.value = false
+            _wazStatus.value = "Ready"
+
             val track = tracks[finalIdx]
             Log.d("MediaPlayer", "Streaming Nasheed audio from: ${track.file}")
 
@@ -887,6 +932,166 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _nasheedProgress.value = progressPercent
     }
 
+    // ── Waz Play Operations ──
+    fun setWazVolume(v: Float) {
+        _wazVolume.value = v
+        prefs.edit().putFloat("waz_volume", v).apply()
+        wazPlayer?.setVolume(v, v)
+    }
+
+    private fun fetchWazManifest() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "https://raw.githubusercontent.com/htvusa/pa/master/waz/manifest.json"
+                val request = Request.Builder().url(url).build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful && response.body != null) {
+                        val bodyString = response.body!!.string()
+                        val listAdapter = moshi.adapter(List::class.java)
+                        val files = listAdapter.fromJson(bodyString) as? List<*>
+                        if (files != null && files.isNotEmpty()) {
+                            val mapped = files.map { file ->
+                                val cleanName = file.toString()
+                                val title = cleanName.replace(Regex("\\.mp3$"), "")
+                                    .replace(Regex("^\\d+[\\s._\\-]+"), "")
+                                    .replace(Regex("[_\\-]+"), " ")
+                                    .replace(Regex("\\b\\w")) { it.value.uppercase(Locale.US) }
+                                    .trim()
+                                WazTrack("https://raw.githubusercontent.com/htvusa/pa/master/waz/$cleanName", title)
+                            }
+                            _wazTracks.value = mapped
+                            return@launch
+                        }
+                    }
+                }
+                produceFallbackWazList()
+            } catch (e: Exception) {
+                produceFallbackWazList()
+            }
+        }
+    }
+
+    private fun produceFallbackWazList() {
+        val defaultList = listOf(
+            WazTrack("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/001.mp3", "Allama Fultali - Waqt & Amal")
+        )
+        _wazTracks.value = defaultList
+    }
+
+    fun playWaz(index: Int) {
+        val tracks = _wazTracks.value
+        if (tracks.isEmpty()) return
+        val finalIdx = index.coerceIn(0, tracks.size - 1)
+        _wazIndex.value = finalIdx
+        prefs.edit().putInt("waz_idx", finalIdx).apply()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            viewModelScope.launch {
+                _wazStatus.value = "Loading track..."
+                _wazProgress.value = 0f
+            }
+
+            wazPlayer?.stop()
+            wazPlayer?.release()
+            wazPlayer = null
+
+            quranPlayer?.stop()
+            quranPlayer?.release()
+            quranPlayer = null
+            _quranIsPlaying.value = false
+            _quranStatus.value = "Ready"
+
+            nasheedPlayer?.stop()
+            nasheedPlayer?.release()
+            nasheedPlayer = null
+            _nasheedIsPlaying.value = false
+            _nasheedStatus.value = "Ready"
+
+            val track = tracks[finalIdx]
+            Log.d("MediaPlayer", "Streaming Waz audio from: ${track.file}")
+
+            try {
+                val player = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                    setDataSource(track.file)
+                    prepare()
+                }
+
+                val vol = _wazVolume.value
+                player.setVolume(vol, vol)
+                player.start()
+
+                wazPlayer = player
+                viewModelScope.launch {
+                    _wazStatus.value = "${finalIdx + 1} / ${tracks.size}"
+                    _wazIsPlaying.value = true
+                }
+
+                player.setOnCompletionListener {
+                    viewModelScope.launch {
+                        _wazIsPlaying.value = false
+                        _wazProgress.value = 0f
+                        playWazNext()
+                    }
+                }
+                player.setOnErrorListener { _, _, _ ->
+                    viewModelScope.launch { _wazStatus.value = "Unavailable" }
+                    true
+                }
+
+                trackPlayerProgress()
+            } catch (e: Exception) {
+                Log.e("MediaPlayer", "Failed playing waz stream for ${track.file}", e)
+                viewModelScope.launch {
+                    _wazStatus.value = "Playback error"
+                }
+            }
+        }
+    }
+
+    fun toggleWazPlay() {
+        val player = wazPlayer
+        if (player != null) {
+            if (_wazIsPlaying.value) {
+                player.pause()
+                _wazIsPlaying.value = false
+                _wazStatus.value = "Paused"
+            } else {
+                player.start()
+                _wazIsPlaying.value = true
+                _wazStatus.value = "Playing"
+            }
+        } else {
+            playWaz(_wazIndex.value)
+        }
+    }
+
+    fun playWazNext() {
+        val size = _wazTracks.value.size
+        if (size == 0) return
+        val nextIdx = (_wazIndex.value + 1) % size
+        playWaz(nextIdx)
+    }
+
+    fun playWazPrev() {
+        val size = _wazTracks.value.size
+        if (size == 0) return
+        val prevIdx = if (_wazIndex.value <= 0) size - 1 else _wazIndex.value - 1
+        playWaz(prevIdx)
+    }
+
+    fun seekWaz(progressPercent: Float) {
+        val player = wazPlayer ?: return
+        val pos = (progressPercent * player.duration).toInt()
+        player.seekTo(pos)
+        _wazProgress.value = progressPercent
+    }
+
     // Global background progress metrics sync thread
     private fun trackPlayerProgress() {
         progressTrackerJob?.cancel()
@@ -900,6 +1105,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 nasheedPlayer?.let { p ->
                     if (p.isPlaying && p.duration > 0) {
                         _nasheedProgress.value = p.currentPosition.toFloat() / p.duration.toFloat()
+                    }
+                }
+                wazPlayer?.let { p ->
+                    if (p.isPlaying && p.duration > 0) {
+                        _wazProgress.value = p.currentPosition.toFloat() / p.duration.toFloat()
                     }
                 }
                 delay(500)
@@ -916,6 +1126,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         azanPlayer?.release()
         quranPlayer?.release()
         nasheedPlayer?.release()
+        wazPlayer?.release()
     }
 
     // ── GitHub Auto Update Processing ──

@@ -1501,7 +1501,7 @@ fun InlineAudioCompanionWidget(
     viewModel: MainViewModel,
     currentTheme: PrayerTheme
 ) {
-    var selectedTab by remember { mutableStateOf("quran") } // "quran" or "nasheed"
+    var selectedTab by remember { mutableStateOf("quran") } // "quran", "nasheed", or "waz"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1565,14 +1565,39 @@ fun InlineAudioCompanionWidget(
                         )
                     }
                 }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(if (selectedTab == "waz") currentTheme.surface else Color.Transparent)
+                        .clickable { selectedTab = "waz" }
+                        .padding(10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Campaign,
+                            contentDescription = null,
+                            tint = if (selectedTab == "waz") currentTheme.primary else currentTheme.textMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Waz",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selectedTab == "waz") currentTheme.textOnBg else currentTheme.textSub
+                        )
+                    }
+                }
             }
 
             // Tab contents
             Crossfade(targetState = selectedTab, label = "TabSwitch") { tab ->
-                if (tab == "quran") {
-                    QuranPlayerView(viewModel = viewModel, currentTheme = currentTheme)
-                } else {
-                    NasheedPlayerView(viewModel = viewModel, currentTheme = currentTheme)
+                when (tab) {
+                    "quran" -> QuranPlayerView(viewModel = viewModel, currentTheme = currentTheme)
+                    "nasheed" -> NasheedPlayerView(viewModel = viewModel, currentTheme = currentTheme)
+                    "waz" -> WazPlayerView(viewModel = viewModel, currentTheme = currentTheme)
                 }
             }
         }
@@ -1834,6 +1859,108 @@ fun NasheedPlayerView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             Slider(
                 value = volume,
                 onValueChange = { viewModel.setNasheedVolume(it) },
+                modifier = Modifier.width(80.dp),
+                colors = SliderDefaults.colors(
+                    activeTrackColor = currentTheme.textOnBg,
+                    thumbColor = currentTheme.textOnBg
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun WazPlayerView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
+    val tracks by viewModel.wazTracks.collectAsStateWithLifecycle()
+    val activeIdx by viewModel.wazIndex.collectAsStateWithLifecycle()
+    val playing by viewModel.wazIsPlaying.collectAsStateWithLifecycle()
+    val status by viewModel.wazStatus.collectAsStateWithLifecycle()
+    val progress by viewModel.wazProgress.collectAsStateWithLifecycle()
+    val volume by viewModel.wazVolume.collectAsStateWithLifecycle()
+
+    val currentTrack = tracks.getOrNull(activeIdx)
+
+    Column(
+        modifier = Modifier.padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(currentTheme.primary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "🎙️", fontSize = 16.sp, color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = currentTrack?.title ?: "No Lectures Loaded",
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = currentTheme.textOnBg,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Islamic Lecture · $status",
+                    fontSize = 10.sp,
+                    color = currentTheme.textSub
+                )
+            }
+
+            IconButton(onClick = { viewModel.playWazPrev() }) {
+                Icon(Icons.Default.SkipPrevious, contentDescription = "Prev", tint = currentTheme.textOnBg)
+            }
+
+            IconButton(
+                onClick = { viewModel.toggleWazPlay() },
+                colors = IconButtonDefaults.iconButtonColors(containerColor = currentTheme.primary)
+            ) {
+                Icon(
+                    imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White
+                )
+            }
+
+            IconButton(onClick = { viewModel.playWazNext() }) {
+                Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = currentTheme.textOnBg)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "⏳", fontSize = 11.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Slider(
+                value = progress,
+                onValueChange = { viewModel.seekWaz(it) },
+                modifier = Modifier.weight(1f),
+                colors = SliderDefaults.colors(
+                    activeTrackColor = currentTheme.primary,
+                    inactiveTrackColor = currentTheme.primary.copy(alpha = 0.15f),
+                    thumbColor = currentTheme.primary
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "🔊", fontSize = 11.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Slider(
+                value = volume,
+                onValueChange = { viewModel.setWazVolume(it) },
                 modifier = Modifier.width(80.dp),
                 colors = SliderDefaults.colors(
                     activeTrackColor = currentTheme.textOnBg,
@@ -2407,7 +2534,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v2.5)",
+                                        text = "✓ App is up-to-date (v2.6)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )

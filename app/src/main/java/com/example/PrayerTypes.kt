@@ -86,3 +86,9 @@ data class NasheedTrack(
     val file: String,
     val title: String
 )
+
+data class WazTrack(
+    val file: String,
+    val title: String
+)
+
