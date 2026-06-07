@@ -565,7 +565,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (_azanOn.value && duration.toMillis() in 0..1000L) {
                 val key = next.key
                 if (lastPlayedAzanKey != key) {
-                    triggerAzanMediaAudio()
+                    triggerAzanMediaAudio(isFajr = key.equals("Fajr", ignoreCase = true))
                     lastPlayedAzanKey = key
                 }
             }
@@ -575,16 +575,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Play Azan MP3 file via direct MediaPlayer stream
-    private fun triggerAzanMediaAudio() {
+    private fun triggerAzanMediaAudio(isFajr: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             azanPlayer?.release()
             azanPlayer = null
 
-            val urls = listOf(
-                "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
-                "https://www.islamcan.com/audio/azan/rema.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-            )
+            val urls = if (isFajr) {
+                listOf(
+                    "https://raw.githubusercontent.com/htvusa/pa/master/fajrAzan.mp3",
+                    "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
+                    "https://www.islamcan.com/audio/azan/rema.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                )
+            } else {
+                listOf(
+                    "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
+                    "https://www.islamcan.com/audio/azan/rema.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                )
+            }
 
             for (url in urls) {
                 try {
@@ -601,7 +610,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         start()
                     }
                     azanPlayer = player
-                    _uiEvents.emit("Azan activated at prayer time!")
+                    if (isFajr && url.contains("fajrAzan.mp3")) {
+                        _uiEvents.emit("Fajr Azan activated at prayer time!")
+                    } else {
+                        _uiEvents.emit("Azan activated at prayer time!")
+                    }
                     return@launch
                 } catch (e: Exception) {
                     Log.e("MediaPlayer", "Failed playing azan audio streaming from $url, trying next...", e)
