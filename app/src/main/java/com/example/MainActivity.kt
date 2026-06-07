@@ -76,6 +76,10 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import android.app.Application
+
 
 class MainActivity : ComponentActivity() {
 
@@ -1590,6 +1594,33 @@ fun InlineAudioCompanionWidget(
                         )
                     }
                 }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .background(if (selectedTab == "masjid") currentTheme.surface else Color.Transparent)
+                        .clickable { selectedTab = "masjid" }
+                        .padding(10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = null,
+                            tint = if (selectedTab == "masjid") currentTheme.primary else currentTheme.textMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Subscribe Masjid",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selectedTab == "masjid") currentTheme.textOnBg else currentTheme.textSub,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
             // Tab contents
@@ -1598,6 +1629,7 @@ fun InlineAudioCompanionWidget(
                     "quran" -> QuranPlayerView(viewModel = viewModel, currentTheme = currentTheme)
                     "nasheed" -> NasheedPlayerView(viewModel = viewModel, currentTheme = currentTheme)
                     "waz" -> WazPlayerView(viewModel = viewModel, currentTheme = currentTheme)
+                    "masjid" -> SubscribeMasjidView(viewModel = viewModel, currentTheme = currentTheme)
                 }
             }
         }
@@ -1968,6 +2000,394 @@ fun WazPlayerView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 )
             )
         }
+    }
+}
+
+@Composable
+fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
+    val subscribedUser by viewModel.subscribedUser.collectAsStateWithLifecycle()
+    val subscribedName by viewModel.subscribedName.collectAsStateWithLifecycle()
+    val history by viewModel.subscribedHistory.collectAsStateWithLifecycle()
+    val masjidUsers by viewModel.masjidUsers.collectAsStateWithLifecycle()
+    val masjidLoading by viewModel.masjidLoading.collectAsStateWithLifecycle()
+    val masjidStatusMsg by viewModel.masjidStatusMessage.collectAsStateWithLifecycle()
+    val masjidStatusType by viewModel.masjidStatusType.collectAsStateWithLifecycle()
+
+    var searchQuery by remember { mutableStateOf("") }
+    var dropdownOpen by remember { mutableStateOf(false) }
+
+    // Fetch users when view opens if list is empty
+    LaunchedEffect(Unit) {
+        if (masjidUsers.isEmpty()) {
+            viewModel.fetchMasjidUsers()
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "badgePulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Active Connection Badge
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = currentTheme.surface.copy(alpha = 0.5f)
+            ),
+            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.25f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Pulse dot
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .graphicsLayer { alpha = if (subscribedUser.isNotEmpty()) pulseAlpha else 0.5f }
+                        .background(
+                            color = if (subscribedUser.isNotEmpty()) Color(0xFF00C872) else Color(0xFFC0392B),
+                            shape = CircleShape
+                        )
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "CONNECTED TO",
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = currentTheme.textMuted,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = if (subscribedUser.isNotEmpty()) subscribedName else "— (None Subscribed)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (subscribedUser.isNotEmpty()) currentTheme.textOnBg else currentTheme.textSub
+                    )
+                }
+
+                if (subscribedUser.isNotEmpty()) {
+                    Text(
+                        text = "Local Storage",
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFFD4A043),
+                        modifier = Modifier
+                            .background(Color(0xFFD4A043).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+
+        // Section header and refresh btn
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "SELECT DISPLAY / MASJID",
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = currentTheme.textMuted,
+                letterSpacing = 1.sp
+            )
+
+            IconButton(
+                onClick = { viewModel.fetchMasjidUsers() },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh List",
+                    tint = currentTheme.primary,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+
+        // Search Username/Masjid dynamic input
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        dropdownOpen = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused) dropdownOpen = true
+                        },
+                    placeholder = {
+                        Text(
+                            text = "Search username or masjid...",
+                            fontSize = 13.sp,
+                            color = currentTheme.textMuted
+                        )
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = currentTheme.primary,
+                        unfocusedBorderColor = currentTheme.primary.copy(alpha = 0.2f),
+                        cursorColor = currentTheme.primary,
+                        focusedTextColor = currentTheme.textOnBg,
+                        unfocusedTextColor = currentTheme.textOnBg
+                    ),
+                    trailingIcon = {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = currentTheme.textSub,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                )
+
+                // Match dropdown UI styling
+                if (dropdownOpen && searchQuery.trim().isNotEmpty()) {
+                    val filteredUsers = masjidUsers.filter { user ->
+                        user.username.contains(searchQuery, ignoreCase = true) ||
+                        (user.name ?: "").contains(searchQuery, ignoreCase = true) ||
+                        (user.city ?: "").contains(searchQuery, ignoreCase = true)
+                    }
+
+                    if (filteredUsers.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp)
+                                .padding(top = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.3f)),
+                            colors = CardDefaults.cardColors(
+                                containerColor = currentTheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        ) {
+                            LazyColumn {
+                                items(filteredUsers) { user ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                searchQuery = user.name ?: user.username
+                                                dropdownOpen = false
+                                                viewModel.connectMasjidUsername(user.username)
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = user.name ?: "—",
+                                                modifier = Modifier.testTag("opt_${user.username}"),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = currentTheme.textOnBg
+                                            )
+                                            Text(
+                                                text = user.username,
+                                                fontSize = 11.sp,
+                                                color = currentTheme.primary,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+
+                                        val locText = listOfNotNull(user.city, user.state).joinToString(", ")
+                                        if (locText.isNotEmpty()) {
+                                            Text(
+                                                text = locText,
+                                                fontSize = 10.sp,
+                                                color = currentTheme.textSub,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                    Divider(
+                                        color = currentTheme.primary.copy(alpha = 0.08f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Direct connect button
+        Button(
+            onClick = {
+                dropdownOpen = false
+                viewModel.connectMasjidUsername(searchQuery)
+            },
+            modifier = Modifier.fillMaxWidth().testTag("connect_btn"),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = currentTheme.primary
+            ),
+            enabled = !masjidLoading
+        ) {
+            Text(
+                text = if (masjidLoading) "CONNECTING..." else "CONNECT",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp,
+                color = Color.White
+            )
+        }
+
+        // Status Feedback Box
+        if (masjidStatusMsg.isNotEmpty()) {
+            val statusColor = when (masjidStatusType) {
+                "ok" -> Color(0xFF00C872)
+                "err" -> Color(0xFFC0392B)
+                else -> Color(0xFFD4A043)
+            }
+            Text(
+                text = masjidStatusMsg,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                color = statusColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(statusColor.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                    .padding(vertical = 6.dp)
+            )
+        }
+
+        Divider(color = currentTheme.primary.copy(alpha = 0.12f))
+
+        // Saved Usernames (History list)
+        Text(
+            text = "SAVED USERNAMES",
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            color = currentTheme.textMuted,
+            letterSpacing = 1.sp
+        )
+
+        if (history.isEmpty()) {
+            Text(
+                text = "No recent usernames",
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                color = currentTheme.textSub.copy(alpha = 0.5f),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                history.forEach { user ->
+                    val isCurrent = subscribedUser == user
+                    val savedName = viewModel.getApplication<Application>()
+                        .getSharedPreferences("local_prayer_settings", Context.MODE_PRIVATE)
+                        .getString("sub_masjid_histname_$user", "") ?: user
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = if (isCurrent) currentTheme.primary.copy(alpha = 0.12f) else currentTheme.surface.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isCurrent) currentTheme.primary.copy(alpha = 0.35f) else currentTheme.primary.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .clickable { viewModel.connectMasjidUsername(user) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = savedName,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = currentTheme.textOnBg
+                            )
+                            Text(
+                                text = user,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = currentTheme.textSub
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isCurrent) {
+                                Text(
+                                    text = "ACTIVE",
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color(0xFF00C872),
+                                    modifier = Modifier
+                                        .background(Color(0xFF00C872).copy(alpha = 0.15f), RoundedCornerShape(3.dp))
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.removeMasjidFromHistory(user) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Remove History",
+                                    tint = Color(0xFFC0392B),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Divider(color = currentTheme.primary.copy(alpha = 0.12f))
+
+        // Static informational footer
+        Text(
+            text = "USERNAME IS SAVED IN LOCAL STORAGE\nAND RESTORED AUTOMATICALLY ON RELOAD.",
+            fontSize = 9.sp,
+            fontFamily = FontFamily.Monospace,
+            color = currentTheme.textMuted.copy(alpha = 0.45f),
+            lineHeight = 12.sp,
+            letterSpacing = 0.5.sp
+        )
     }
 }
 
@@ -2534,7 +2954,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v2.6)",
+                                        text = "✓ App is up-to-date (v2.7)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
@@ -2576,7 +2996,9 @@ private fun fetchAndSetDeviceLocation(activity: Activity, viewModel: MainViewMod
     }
 
     try {
-        val client = LocationServices.getFusedLocationProviderClient(activity)
+        // Use Application Context to bypass Android 11+ Activity context attribution warning checks
+        val appContext = activity.applicationContext
+        val client = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(appContext)
         client.lastLocation.addOnSuccessListener { loc ->
             if (loc != null) {
                 viewModel.setCoordinates(loc.latitude, loc.longitude)
@@ -2586,11 +3008,44 @@ private fun fetchAndSetDeviceLocation(activity: Activity, viewModel: MainViewMod
                     .addOnSuccessListener { fresh ->
                         if (fresh != null) {
                             viewModel.setCoordinates(fresh.latitude, fresh.longitude)
+                        } else {
+                            // Fallback on empty response
+                            fetchViaNativeLocationManager(activity, viewModel)
                         }
+                    }
+                    .addOnFailureListener {
+                        fetchViaNativeLocationManager(activity, viewModel)
                     }
             }
         }.addOnFailureListener {
-            // Ignore failure
+            fetchViaNativeLocationManager(activity, viewModel)
+        }
+    } catch (e: Exception) {
+        fetchViaNativeLocationManager(activity, viewModel)
+    }
+}
+
+private fun fetchViaNativeLocationManager(activity: Activity, viewModel: MainViewModel) {
+    try {
+        val locationManager = activity.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+        var bestLocation: android.location.Location? = null
+
+        if (locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+            val gpsLoc = locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+            if (gpsLoc != null) {
+                bestLocation = gpsLoc
+            }
+        }
+
+        if (bestLocation == null && locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)) {
+            val netLoc = locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+            if (netLoc != null) {
+                bestLocation = netLoc
+            }
+        }
+
+        bestLocation?.let { loc ->
+            viewModel.setCoordinates(loc.latitude, loc.longitude)
         }
     } catch (e: Exception) {
         // Safe check

@@ -92,3 +92,23 @@ data class WazTrack(
     val title: String
 )
 
+@JsonClass(generateAdapter = true)
+data class MasjidUser(
+    val username: String,
+    val name: String?,
+    val city: String?,
+    val state: String?
+)
+
+@JsonClass(generateAdapter = true)
+data class UsersResponse(
+    val success: Boolean,
+    val users: List<MasjidUser>?
+)
+
+@JsonClass(generateAdapter = true)
+data class MosqueApiResponse(
+    val success: Boolean,
+    val data: Map<String, String>?
+)
+

@@ -216,6 +216,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _wazVolume = MutableStateFlow(prefs.getFloat("waz_volume", 0.5f))
     val wazVolume: StateFlow<Float> = _wazVolume.asStateFlow()
 
+    // ── Subscribe Masjid State ──
+    private val _subscribedUser = MutableStateFlow(prefs.getString("sub_masjid_user", "") ?: "")
+    val subscribedUser: StateFlow<String> = _subscribedUser.asStateFlow()
+
+    private val _subscribedName = MutableStateFlow(prefs.getString("sub_masjid_name", "") ?: "")
+    val subscribedName: StateFlow<String> = _subscribedName.asStateFlow()
+
+    private val _subscribedHistory = MutableStateFlow<List<String>>(
+        prefs.getStringSet("sub_masjid_history", emptySet())?.toList() ?: emptyList()
+    )
+    val subscribedHistory: StateFlow<List<String>> = _subscribedHistory.asStateFlow()
+
+    private val _masjidUsers = MutableStateFlow<List<MasjidUser>>(emptyList())
+    val masjidUsers: StateFlow<List<MasjidUser>> = _masjidUsers.asStateFlow()
+
+    private val _masjidLoading = MutableStateFlow(false)
+    val masjidLoading: StateFlow<Boolean> = _masjidLoading.asStateFlow()
+
+    private val _masjidStatusMessage = MutableStateFlow("")
+    val masjidStatusMessage: StateFlow<String> = _masjidStatusMessage.asStateFlow()
+
+    private val _masjidStatusType = MutableStateFlow("info") // "ok", "err", "info"
+    val masjidStatusType: StateFlow<String> = _masjidStatusType.asStateFlow()
+
+
     // ── Active Background Jobs ──
     private var countdownJob: Job? = null
     private var trackingJob: Job? = null
@@ -1091,6 +1116,141 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         player.seekTo(pos)
         _wazProgress.value = progressPercent
     }
+
+    fun fetchMasjidUsers() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _masjidLoading.value = true
+            _masjidStatusMessage.value = "Loading users..."
+            _masjidStatusType.value = "info"
+            try {
+                val url = "https://daarulhikmahny.org/lapp/users.php?api_key=dhny-display-2025"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("X-API-Key", "dhny-display-2025")
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful && response.body != null) {
+                        val bodyString = response.body!!.string()
+                        val adapter = moshi.adapter(UsersResponse::class.java)
+                        val res = adapter.fromJson(bodyString)
+                        if (res != null && res.success && res.users != null) {
+                            _masjidUsers.value = res.users
+                            _masjidStatusMessage.value = ""
+                        } else {
+                            _masjidStatusMessage.value = "Failed to load users"
+                            _masjidStatusType.value = "err"
+                        }
+                    } else {
+                        _masjidStatusMessage.value = "HTTP error: ${response.code}"
+                        _masjidStatusType.value = "err"
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error fetching masjid users", e)
+                _masjidStatusMessage.value = "Connection failed"
+                _masjidStatusType.value = "err"
+            } finally {
+                _masjidLoading.value = false
+            }
+        }
+    }
+
+    fun connectMasjidUsername(newUser: String, silent: Boolean = false) {
+        val cleanUser = newUser.trim()
+        if (cleanUser.isEmpty()) {
+            if (!silent) {
+                _masjidStatusMessage.value = "Please enter a username"
+                _masjidStatusType.value = "err"
+            }
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!silent) {
+                _masjidLoading.value = true
+                _masjidStatusMessage.value = "Connecting..."
+                _masjidStatusType.value = "info"
+            }
+            try {
+                val url = "https://daarulhikmahny.org/lapp/api.php?api_key=dhny-display-2025&username=$cleanUser"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("X-API-Key", "dhny-display-2025")
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful && response.body != null) {
+                        val bodyString = response.body!!.string()
+                        val adapter = moshi.adapter(MosqueApiResponse::class.java)
+                        val res = adapter.fromJson(bodyString)
+                        if (res != null && res.success && res.data != null) {
+                            val data = res.data
+                            val masjidName = data["name"] ?: cleanUser
+                            
+                            _subscribedUser.value = cleanUser
+                            _subscribedName.value = masjidName
+                            
+                            prefs.edit()
+                                .putString("sub_masjid_user", cleanUser)
+                                .putString("sub_masjid_name", masjidName)
+                                .putString("sub_masjid_histname_$cleanUser", masjidName)
+                                .apply()
+
+                            // Store individual data items in shared preferences as requested in HTML layout
+                            val editor = prefs.edit()
+                            data.forEach { (key, value) ->
+                                editor.putString("sub_masjid_field_$key", value)
+                            }
+                            editor.apply()
+
+                            // Add to history list as requested
+                            val currentHistoryList = _subscribedHistory.value.toMutableList()
+                            currentHistoryList.remove(cleanUser)
+                            currentHistoryList.add(0, cleanUser)
+                            if (currentHistoryList.size > 8) {
+                                currentHistoryList.removeAt(currentHistoryList.size - 1)
+                            }
+                            _subscribedHistory.value = currentHistoryList
+                            prefs.edit().putStringSet("sub_masjid_history", currentHistoryList.toSet()).apply()
+
+                            _masjidStatusMessage.value = "Connected as $cleanUser"
+                            _masjidStatusType.value = "ok"
+                        } else {
+                            _masjidStatusMessage.value = "User not found or API error"
+                            _masjidStatusType.value = "err"
+                        }
+                    } else {
+                        _masjidStatusMessage.value = "HTTP error: ${response.code}"
+                        _masjidStatusType.value = "err"
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error connecting masjid", e)
+                _masjidStatusMessage.value = "Connection failed"
+                _masjidStatusType.value = "err"
+            } finally {
+                _masjidLoading.value = false
+            }
+        }
+    }
+
+    fun removeMasjidFromHistory(user: String) {
+        val currentHistoryList = _subscribedHistory.value.toMutableList()
+        currentHistoryList.remove(user)
+        _subscribedHistory.value = currentHistoryList
+        prefs.edit().putStringSet("sub_masjid_history", currentHistoryList.toSet()).apply()
+
+        if (_subscribedUser.value == user) {
+            val nextUser = currentHistoryList.firstOrNull() ?: ""
+            if (nextUser.isNotEmpty()) {
+                connectMasjidUsername(nextUser, silent = true)
+            } else {
+                _subscribedUser.value = ""
+                _subscribedName.value = ""
+                prefs.edit().remove("sub_masjid_user").remove("sub_masjid_name").apply()
+            }
+        }
+    }
+
 
     // Global background progress metrics sync thread
     private fun trackPlayerProgress() {
