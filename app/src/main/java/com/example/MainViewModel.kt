@@ -581,7 +581,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             azanPlayer = null
 
             val urls = listOf(
-                "https://raw.githubusercontent.com/jm7867/pa/master/azan.mp3",
+                "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
                 "https://www.islamcan.com/audio/azan/rema.mp3",
                 "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
             )
@@ -635,7 +635,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val fileCode = String.format(Locale.US, "%03d", finalIdx)
             val urls = listOf(
-                "https://raw.githubusercontent.com/jm7867/pa/master/quran/$fileCode.mp3",
+                "https://raw.githubusercontent.com/htvusa/pa/master/quran/$fileCode.mp3",
                 "https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/$fileCode.mp3"
             )
 
@@ -732,7 +732,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun fetchBackupNasheedManifest() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = "https://raw.githubusercontent.com/jm7867/pa/master/nashed/manifest.json"
+                val url = "https://raw.githubusercontent.com/htvusa/pa/master/nashed/manifest.json"
                 val request = Request.Builder().url(url).build()
                 httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful && response.body != null) {
@@ -747,7 +747,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     .replace(Regex("[_\\-]+"), " ")
                                     .replace(Regex("\\b\\w")) { it.value.uppercase(Locale.US) }
                                     .trim()
-                                NasheedTrack("https://raw.githubusercontent.com/jm7867/pa/master/nashed/$cleanName", title)
+                                NasheedTrack("https://raw.githubusercontent.com/htvusa/pa/master/nashed/$cleanName", title)
                             }
                             _nasheedTracks.value = mapped
                             return@launch

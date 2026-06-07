@@ -2397,7 +2397,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v2.2)",
+                                        text = "✓ App is up-to-date (v2.3)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
