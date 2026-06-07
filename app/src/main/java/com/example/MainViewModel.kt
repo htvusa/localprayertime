@@ -223,6 +223,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _subscribedName = MutableStateFlow(prefs.getString("sub_masjid_name", "") ?: "")
     val subscribedName: StateFlow<String> = _subscribedName.asStateFlow()
 
+    private val _subscribedData = MutableStateFlow<Map<String, String>>(emptyMap())
+    val subscribedData: StateFlow<Map<String, String>> = _subscribedData.asStateFlow()
+
     private val _subscribedHistory = MutableStateFlow<List<String>>(
         prefs.getStringSet("sub_masjid_history", emptySet())?.toList() ?: emptyList()
     )
@@ -240,6 +243,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _masjidStatusType = MutableStateFlow("info") // "ok", "err", "info"
     val masjidStatusType: StateFlow<String> = _masjidStatusType.asStateFlow()
 
+    fun refreshSubscribedMasjidData() {
+        val map = mutableMapOf<String, String>()
+        prefs.all.forEach { (key, value) ->
+            if (key.startsWith("sub_masjid_field_") && value is String) {
+                map[key.removePrefix("sub_masjid_field_")] = value
+            }
+        }
+        _subscribedData.value = map
+    }
+
 
     // ── Active Background Jobs ──
     private var countdownJob: Job? = null
@@ -248,6 +261,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var lastPlayedAzanKey: String? = null
 
     init {
+        // Initial load of subscribed masjid data
+        refreshSubscribedMasjidData()
+
         // Prepare primary countdown and tracker loop
         startCountdownTimer()
         startPeriodicCheckers()
@@ -1214,6 +1230,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                             _masjidStatusMessage.value = "Connected as $cleanUser"
                             _masjidStatusType.value = "ok"
+                            refreshSubscribedMasjidData()
                         } else {
                             _masjidStatusMessage.value = "User not found or API error"
                             _masjidStatusType.value = "err"
@@ -1233,6 +1250,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearSubscribedMasjidFields() {
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith("sub_masjid_field_") }.forEach {
+            editor.remove(it)
+        }
+        editor.apply()
+        _subscribedData.value = emptyMap()
+    }
+
     fun removeMasjidFromHistory(user: String) {
         val currentHistoryList = _subscribedHistory.value.toMutableList()
         currentHistoryList.remove(user)
@@ -1246,6 +1272,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 _subscribedUser.value = ""
                 _subscribedName.value = ""
+                clearSubscribedMasjidFields()
                 prefs.edit().remove("sub_masjid_user").remove("sub_masjid_name").apply()
             }
         }
