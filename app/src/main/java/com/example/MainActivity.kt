@@ -2126,9 +2126,10 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Left Section: Masjid Name & Address
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier.weight(1.05f)
                 ) {
                     // Fallback Mosque Icon with Connected indicator
                     Box(contentAlignment = Alignment.BottomEnd) {
@@ -2187,25 +2188,30 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     }
                 }
 
-                // Right Panel: Today's date & settings cog
+                // Center Section: Current Date (English & Arabic / Hijri)
                 val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
                 val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(0.9f)
+                    modifier = Modifier.weight(0.95f),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.weight(1f)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
+                        Text(text = "🗓️", fontSize = 18.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(horizontalAlignment = Alignment.Start) {
                         Text(
                             text = todayGreg,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = currentTheme.textOnBg,
-                            textAlign = TextAlign.End,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2214,25 +2220,67 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             fontSize = 9.sp,
                             color = currentTheme.textSub,
                             fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.End,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
 
-                    IconButton(
-                        onClick = { showSettingsDialog = true },
+                // Right Section: Last Updated (latest masjid update timestamp)
+                val rawLastUpdated = subscribedData["last_updated"]
+                    ?: subscribedData["updated_at"]
+                    ?: subscribedData["updated"]
+                    ?: subscribedData["timestamp"]
+                    ?: "N/A"
+                val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(0.85f),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Pick Masjid Settings",
-                            tint = currentTheme.primary,
-                            modifier = Modifier.size(18.dp)
+                        Text(text = "🔄", fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = "LAST UPDATED",
+                            fontSize = 8.sp,
+                            color = goldColor,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            text = lastUpdated,
+                            fontSize = 10.sp,
+                            color = currentTheme.textOnBg,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+
+                // Far Right Section: Settings Icon Button
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Pick Masjid Settings",
+                        tint = currentTheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
