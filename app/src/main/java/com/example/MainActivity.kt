@@ -2271,25 +2271,19 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
 
             @Composable
             fun Box1Content() {
-                // 1. App Identity / Brand banner
+                // 1. App Identity / Brand banner - Displays Today's date and location cleanly (Name is already in header)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = currentTheme.surface.copy(alpha = 0.5f)
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.2.dp, goldColor.copy(alpha = 0.25f))
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = subscribedName,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = currentTheme.textOnBg
-                        )
                         val locCity = subscribedData["city"] ?: ""
                         val locState = subscribedData["state"] ?: ""
                         val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
@@ -2300,14 +2294,21 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 color = currentTheme.textSub,
                                 fontWeight = FontWeight.Medium
                             )
+                        } else {
+                            Text(
+                                text = "📍 Live display feed active",
+                                fontSize = 11.sp,
+                                color = currentTheme.textSub,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                         
-                        Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+                        Divider(color = currentTheme.primary.copy(alpha = 0.08f))
                         
                         val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
                         val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "🗓️", fontSize = 13.sp)
+                            Text(text = "🗓️", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(6.dp))
                             Column {
                                 Text(
@@ -2373,9 +2374,9 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     colors = CardDefaults.cardColors(
                         containerColor = goldColor.copy(alpha = 0.08f)
                     ),
-                    border = BorderStroke(1.5.dp, goldColor.copy(alpha = 0.4f))
+                    border = BorderStroke(1.2.dp, goldColor.copy(alpha = 0.3f))
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(10.dp)) {
                         Text(
                             text = "🏆 WEEKLY JUMU'AH KUTBAH / PRAYER",
                             fontSize = 10.sp,
@@ -2384,18 +2385,18 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             color = goldColor,
                             letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
                                 Text(text = "1st Jumu'ah Jamat", fontSize = 9.sp, color = currentTheme.textSub)
-                                Text(text = jumuah1, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = currentTheme.textOnBg)
+                                Text(text = jumuah1, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = currentTheme.textOnBg)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(text = "2nd Jumu'ah Jamat", fontSize = 9.sp, color = currentTheme.textSub)
-                                Text(text = jumuah2, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = currentTheme.textOnBg)
+                                Text(text = jumuah2, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = currentTheme.textOnBg)
                             }
                         }
                     }
@@ -2404,27 +2405,27 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 // 4. Announcements
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = currentTheme.surface.copy(alpha = 0.5f)
                     ),
                     border = BorderStroke(
                         width = 1.2.dp,
-                        color = goldColor.copy(alpha = 0.35f)
+                        color = goldColor.copy(alpha = 0.25f)
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(text = "📢", fontSize = 18.sp)
+                            Text(text = "📢", fontSize = 15.sp)
                             Text(
                                 text = "MASJID BULLETIN & ANNOUNCEMENTS",
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace,
                                 color = goldColor,
@@ -2437,19 +2438,19 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         if (noticeText.trim().isEmpty() && eventDetails.trim().isEmpty()) {
                             Text(
                                 text = "No active notifications or messages posted by the administration today.",
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontStyle = FontStyle.Italic,
                                 color = currentTheme.textSub,
-                                lineHeight = 15.sp
+                                lineHeight = 14.sp
                             )
                         } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (noticeText.trim().isNotEmpty()) {
                                     Text(
                                         text = noticeText,
-                                        fontSize = 11.5.sp,
+                                        fontSize = 11.sp,
                                         color = currentTheme.textOnBg,
-                                        lineHeight = 16.sp,
+                                        lineHeight = 15.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -2457,7 +2458,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     if (noticeText.trim().isNotEmpty()) {
                                         Divider(color = currentTheme.primary.copy(alpha = 0.05f))
                                     }
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                         Text(
                                             text = eventTitle.uppercase(),
                                             fontSize = 9.sp,
@@ -2468,9 +2469,9 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                         )
                                         Text(
                                             text = eventDetails,
-                                            fontSize = 11.2.sp,
+                                            fontSize = 10.5.sp,
                                             color = currentTheme.textOnBg,
-                                            lineHeight = 15.sp
+                                            lineHeight = 14.sp
                                         )
                                     }
                                 }
@@ -2485,34 +2486,35 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             if (isPortrait) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box1Content()
                     MasjidSlideshowWidget(
                         viewModel = viewModel,
                         currentTheme = currentTheme,
-                        modifier = Modifier.height(320.dp)
+                        modifier = Modifier.height(300.dp)
                     )
                 }
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Column(
-                        modifier = Modifier.weight(1.1f),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        modifier = Modifier.weight(1.05f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box1Content()
                     }
 
                     Column(
-                        modifier = Modifier.weight(0.9f)
+                        modifier = Modifier.weight(0.95f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         MasjidSlideshowWidget(
                             viewModel = viewModel,
                             currentTheme = currentTheme,
-                            modifier = Modifier.height(540.dp)
+                            modifier = Modifier.height(430.dp)
                         )
                     }
                 }
@@ -3341,7 +3343,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v2.8)",
+                                        text = "✓ App is up-to-date (v2.9)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )

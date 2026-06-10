@@ -1299,6 +1299,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val url = "https://daarulhikmahny.org/lapp/slides.php?api_key=dhny-display-2025&username=$username&_=${System.currentTimeMillis()}"
                 val request = Request.Builder()
                     .url(url)
+                    .header("X-API-Key", "dhny-display-2025")
                     .build()
                 httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful && response.body != null) {
@@ -1310,7 +1311,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             val type = com.squareup.moshi.Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
                             val adapter = moshi.adapter<Map<String, Any>>(type)
                             val resMap = adapter.fromJson(bodyString)
-                            if (resMap != null && (resMap["success"] == true || resMap["success"] == "true")) {
+                            if (resMap != null) {
                                 val rawSlides = resMap["slides"] ?: resMap["data"] ?: resMap["images"]
                                 if (rawSlides is List<*>) {
                                     for (item in rawSlides) {
@@ -1331,11 +1332,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                         if (list.isEmpty()) {
                             try {
-                                val listType = com.squareup.moshi.Types.newParameterizedType(List::class.java, String::class.java)
-                                val listAdapter = moshi.adapter<List<String>>(listType)
+                                val listType = com.squareup.moshi.Types.newParameterizedType(List::class.java, java.lang.Object::class.java)
+                                val listAdapter = moshi.adapter<List<Any>>(listType)
                                 val parsedList = listAdapter.fromJson(bodyString)
                                 if (parsedList != null) {
-                                    list.addAll(parsedList)
+                                    for (item in parsedList) {
+                                        if (item is String) {
+                                            list.add(item)
+                                        } else if (item is Map<*, *>) {
+                                            val urlVal = (item["url"] ?: item["image"] ?: item["file"] ?: item["src"])?.toString()
+                                            if (!urlVal.isNullOrEmpty()) {
+                                                list.add(urlVal)
+                                            }
+                                        }
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("syncSlides", "Error parsing list: ${e.message}")
@@ -1348,10 +1358,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
 
-                        val cleanList = list.map { rawUrl ->
+                        // Robust fallback regex to parse any string containing image paths from the raw endpoint output
+                        if (list.isEmpty()) {
+                            val regexHttp = """https?://[^\s"']+\.(?:png|jpg|jpeg|gif|webp|bmp)""".toRegex(RegexOption.IGNORE_CASE)
+                            regexHttp.findAll(bodyString).forEach {
+                                list.add(it.value)
+                            }
+                        }
+                        if (list.isEmpty()) {
+                            val regexRelative = """(?:uploads|slides)/[^\s"']+\.(?:png|jpg|jpeg|gif|webp|bmp)""".toRegex(RegexOption.IGNORE_CASE)
+                            regexRelative.findAll(bodyString).forEach {
+                                list.add(it.value)
+                            }
+                        }
+
+                        val cleanList = list.distinct().map { rawUrl ->
                             var urlStr = rawUrl.trim()
-                            if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
-                                urlStr = "https://daarulhikmahny.org/lapp/$urlStr"
+                            if (urlStr.startsWith("//")) {
+                                urlStr = "https:$urlStr"
+                            } else if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
+                                if (urlStr.startsWith("/")) {
+                                    urlStr = "https://daarulhikmahny.org$urlStr"
+                                } else {
+                                    urlStr = "https://daarulhikmahny.org/lapp/$urlStr"
+                                }
                             }
                             if (urlStr.contains("?")) {
                                 "$urlStr&_=${System.currentTimeMillis()}"
