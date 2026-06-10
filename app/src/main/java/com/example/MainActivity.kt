@@ -2304,7 +2304,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
 
             @Composable
-            fun Box1Content() {
+            fun PrayerTimesPanel() {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     // All Prayer Times Grid Layout (3-Column Layout)
                     // Row 1: Fajr, Sunrise, Zuhr
@@ -2399,42 +2399,49 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             )
                         }
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    // Announcements Board
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = currentTheme.surface.copy(alpha = 0.5f)
-                        ),
-                        border = BorderStroke(
-                            width = 1.2.dp,
-                            color = goldColor.copy(alpha = 0.25f)
-                        )
+            @Composable
+            fun AnnouncementsPanel() {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = currentTheme.surface.copy(alpha = 0.5f)
+                    ),
+                    border = BorderStroke(
+                        width = 1.2.dp,
+                        color = goldColor.copy(alpha = 0.25f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(text = "📢", fontSize = 15.sp)
-                                Text(
-                                    text = "MASJID BULLETIN & ANNOUNCEMENTS",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = goldColor,
-                                    letterSpacing = 1.sp
-                                )
-                            }
+                            Text(text = "📢", fontSize = 15.sp)
+                            Text(
+                                text = "MASJID BULLETIN & ANNOUNCEMENTS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = goldColor,
+                                letterSpacing = 1.sp
+                            )
+                        }
 
-                            Divider(color = currentTheme.primary.copy(alpha = 0.08f))
+                        HorizontalDivider(color = currentTheme.primary.copy(alpha = 0.08f))
 
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 140.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
                             if (noticeText.trim().isEmpty() && eventDetails.trim().isEmpty()) {
                                 Text(
                                     text = "No active notifications or messages posted by the administration today.",
@@ -2456,7 +2463,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     }
                                     if (eventDetails.trim().isNotEmpty()) {
                                         if (noticeText.trim().isNotEmpty()) {
-                                            Divider(color = currentTheme.primary.copy(alpha = 0.05f))
+                                            HorizontalDivider(color = currentTheme.primary.copy(alpha = 0.05f))
                                         }
                                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(
@@ -2489,12 +2496,13 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box1Content()
+                    PrayerTimesPanel()
                     MasjidSlideshowWidget(
                         viewModel = viewModel,
                         currentTheme = currentTheme,
                         modifier = Modifier.height(300.dp)
                     )
+                    AnnouncementsPanel()
                 }
             } else {
                 Row(
@@ -2502,21 +2510,22 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(0.6f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box1Content()
+                        PrayerTimesPanel()
                     }
 
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(0.4f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         MasjidSlideshowWidget(
                             viewModel = viewModel,
                             currentTheme = currentTheme,
-                            modifier = Modifier.height(370.dp)
+                            modifier = Modifier.height(230.dp)
                         )
+                        AnnouncementsPanel()
                     }
                 }
             }
