@@ -1373,17 +1373,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         val cleanList = list.distinct().map { rawUrl ->
-                            var urlStr = rawUrl.trim()
-                            if (urlStr.startsWith("//")) {
-                                urlStr = "https:$urlStr"
-                            } else if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
-                                if (urlStr.startsWith("/")) {
-                                    urlStr = "https://daarulhikmahny.org$urlStr"
-                                } else {
-                                    urlStr = "https://daarulhikmahny.org/lapp/$urlStr"
-                                }
-                            }
-                            urlStr
+                            val trimmed = rawUrl.trim()
+                            val imageFilename = trimmed.substringAfterLast("/")
+                            val slideUrl = "https://daarulhikmahny.org/lapp/usernames/$username/$imageFilename"
+                            Log.d("syncSlides", "Formatted slide URL: $slideUrl")
+                            slideUrl
                         }
                         
                         withContext(Dispatchers.Main) {
