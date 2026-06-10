@@ -2380,7 +2380,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(modifier = Modifier.weight(0.3f)) {
+                        Box(modifier = Modifier.weight(0.2f)) {
                             MasjidPrayerCell(
                                 title = "1st Jumu'ah",
                                 time = jumuah1,
@@ -2389,7 +2389,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 accentColor = goldColor
                             )
                         }
-                        Box(modifier = Modifier.weight(0.3f)) {
+                        Box(modifier = Modifier.weight(0.2f)) {
                             MasjidPrayerCell(
                                 title = "2nd Jumu'ah",
                                 time = jumuah2,
@@ -2398,7 +2398,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 accentColor = goldColor
                             )
                         }
-                        Box(modifier = Modifier.weight(0.4f)) {
+                        Box(modifier = Modifier.weight(0.6f)) {
                             Card(
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
