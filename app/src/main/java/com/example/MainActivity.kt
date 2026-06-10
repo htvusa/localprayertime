@@ -2304,7 +2304,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
 
             @Composable
-            fun PrayerTimesPanel() {
+            fun Box1Content() {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     // All Prayer Times Grid Layout (3-Column Layout)
                     // Row 1: Fajr, Sunrise, Zuhr
@@ -2399,49 +2399,42 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             )
                         }
                     }
-                }
-            }
 
-            @Composable
-            fun AnnouncementsPanel() {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = currentTheme.surface.copy(alpha = 0.5f)
-                    ),
-                    border = BorderStroke(
-                        width = 1.2.dp,
-                        color = goldColor.copy(alpha = 0.25f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    // Announcements Board
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = currentTheme.surface.copy(alpha = 0.5f)
+                        ),
+                        border = BorderStroke(
+                            width = 1.2.dp,
+                            color = goldColor.copy(alpha = 0.25f)
+                        )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(text = "📢", fontSize = 15.sp)
-                            Text(
-                                text = "MASJID BULLETIN & ANNOUNCEMENTS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                color = goldColor,
-                                letterSpacing = 1.sp
-                            )
-                        }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "📢", fontSize = 15.sp)
+                                Text(
+                                    text = "MASJID BULLETIN & ANNOUNCEMENTS",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = goldColor,
+                                    letterSpacing = 1.sp
+                                )
+                            }
 
-                        HorizontalDivider(color = currentTheme.primary.copy(alpha = 0.08f))
+                            Divider(color = currentTheme.primary.copy(alpha = 0.08f))
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 140.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
                             if (noticeText.trim().isEmpty() && eventDetails.trim().isEmpty()) {
                                 Text(
                                     text = "No active notifications or messages posted by the administration today.",
@@ -2463,7 +2456,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     }
                                     if (eventDetails.trim().isNotEmpty()) {
                                         if (noticeText.trim().isNotEmpty()) {
-                                            HorizontalDivider(color = currentTheme.primary.copy(alpha = 0.05f))
+                                            Divider(color = currentTheme.primary.copy(alpha = 0.05f))
                                         }
                                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(
@@ -2496,13 +2489,12 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    PrayerTimesPanel()
+                    Box1Content()
                     MasjidSlideshowWidget(
                         viewModel = viewModel,
                         currentTheme = currentTheme,
                         modifier = Modifier.height(300.dp)
                     )
-                    AnnouncementsPanel()
                 }
             } else {
                 Row(
@@ -2513,7 +2505,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         modifier = Modifier.weight(0.6f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        PrayerTimesPanel()
+                        Box1Content()
                     }
 
                     Column(
@@ -2523,9 +2515,8 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         MasjidSlideshowWidget(
                             viewModel = viewModel,
                             currentTheme = currentTheme,
-                            modifier = Modifier.height(230.dp)
+                            modifier = Modifier.height(300.dp)
                         )
-                        AnnouncementsPanel()
                     }
                 }
             }
