@@ -2110,7 +2110,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Main Header with Masjid Info & Settings Picking Icon
+        // Main Header with Masjid Info & Settings / Date on the right
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -2128,9 +2128,9 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1.1f)
                 ) {
-                    // Fallback Mosque Icon with Pulsing badge
+                    // Fallback Mosque Icon with Connected indicator
                     Box(contentAlignment = Alignment.BottomEnd) {
                         Box(
                             modifier = Modifier
@@ -2140,7 +2140,6 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         ) {
                             Text(text = "🕌", fontSize = 20.sp)
                         }
-                        // Connected status dot indicator
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
@@ -2156,14 +2155,6 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
 
                     Column {
                         Text(
-                            text = "SUBSCRIBED MASJID",
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = currentTheme.primaryVariant,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
                             text = if (subscribedUser.isNotEmpty()) subscribedName else "No Masjid Connected",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -2175,9 +2166,19 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         val locState = subscribedData["state"] ?: ""
                         val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
                         if (subscribedUser.isNotEmpty() && displayLoc.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(1.dp))
                             Text(
                                 text = "📍 $displayLoc",
+                                fontSize = 10.sp,
+                                color = currentTheme.textSub,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(1.dp))
+                            Text(
+                                text = "📍 Live display feed active",
                                 fontSize = 10.sp,
                                 color = currentTheme.textSub,
                                 fontWeight = FontWeight.Medium
@@ -2186,19 +2187,52 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     }
                 }
 
-                // High prominence Settings icon button to Pick Masjid
-                IconButton(
-                    onClick = { showSettingsDialog = true },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                // Right Panel: Today's date & settings cog
+                val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
+                val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(0.9f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Pick Masjid Settings",
-                        tint = currentTheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = todayGreg,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = currentTheme.textOnBg,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = todayHijri,
+                            fontSize = 9.sp,
+                            color = currentTheme.textSub,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showSettingsDialog = true },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Pick Masjid Settings",
+                            tint = currentTheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -2271,64 +2305,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
 
             @Composable
             fun Box1Content() {
-                // 1. App Identity / Brand banner - Displays Today's date and location cleanly (Name is already in header)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = currentTheme.surface.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.2.dp, goldColor.copy(alpha = 0.25f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        val locCity = subscribedData["city"] ?: ""
-                        val locState = subscribedData["state"] ?: ""
-                        val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
-                        if (displayLoc.isNotEmpty()) {
-                            Text(
-                                text = "📍 $displayLoc",
-                                fontSize = 11.sp,
-                                color = currentTheme.textSub,
-                                fontWeight = FontWeight.Medium
-                            )
-                        } else {
-                            Text(
-                                text = "📍 Live display feed active",
-                                fontSize = 11.sp,
-                                color = currentTheme.textSub,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        
-                        Divider(color = currentTheme.primary.copy(alpha = 0.08f))
-                        
-                        val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
-                        val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "🗓️", fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = todayGreg,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = currentTheme.textOnBg
-                                )
-                                Text(
-                                    text = todayHijri,
-                                    fontSize = 9.sp,
-                                    color = currentTheme.textSub,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 2. All Prayer Times (Grid)
+                // 1. All Prayer Times (Grid)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2501,20 +2478,20 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Column(
-                        modifier = Modifier.weight(1.05f),
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box1Content()
                     }
 
                     Column(
-                        modifier = Modifier.weight(0.95f),
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         MasjidSlideshowWidget(
                             viewModel = viewModel,
                             currentTheme = currentTheme,
-                            modifier = Modifier.height(430.dp)
+                            modifier = Modifier.height(370.dp)
                         )
                     }
                 }
@@ -3343,7 +3320,7 @@ fun AmbientSettingsPopup(
                                     )
                                 } else {
                                     Text(
-                                        text = "✓ App is up-to-date (v2.9)",
+                                        text = "✓ App is up-to-date (v3.0)",
                                         fontSize = 10.sp,
                                         color = currentTheme.textSub
                                     )
@@ -3522,21 +3499,58 @@ fun MasjidSlideshowWidget(
                 val safeIndex = if (currentIndex in slides.indices) currentIndex else 0
                 val imageUrl = slides[safeIndex]
 
-                val painter = coil.compose.rememberAsyncImagePainter(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .build()
-                )
-
                 Box(modifier = Modifier.fillMaxSize()) {
-                    Image(
-                        painter = painter,
-                        contentDescription = "Slideshow Image",
+                    coil.compose.SubcomposeAsyncImage(
+                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(imageUrl)
+                            .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Masjid Slideshow Image",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(12.dp)),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        loading = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = currentTheme.primaryVariant,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        },
+                        error = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = "⚠️", fontSize = 24.sp)
+                                    Text(
+                                        text = "Image failed to load",
+                                        fontSize = 11.sp,
+                                        color = currentTheme.textSub,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = imageUrl.substringBefore("?"),
+                                        fontSize = 8.sp,
+                                        color = currentTheme.textMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
                     )
 
                     // Overlay metadata indicator bubble

@@ -1383,11 +1383,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     urlStr = "https://daarulhikmahny.org/lapp/$urlStr"
                                 }
                             }
-                            if (urlStr.contains("?")) {
-                                "$urlStr&_=${System.currentTimeMillis()}"
-                            } else {
-                                "$urlStr?_=${System.currentTimeMillis()}"
-                            }
+                            urlStr
                         }
                         
                         withContext(Dispatchers.Main) {
