@@ -2375,7 +2375,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         }
                     }
 
-                    // Row 3: 1st Jumu'ah, 2nd Jumu'ah (equal 50% / 50% split)
+                    // Row 3: 1st Jumu'ah, 2nd Jumu'ah, Event (3-column split)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2397,6 +2397,50 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 theme = currentTheme,
                                 accentColor = goldColor
                             )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = currentTheme.surface.copy(alpha = 0.4f)
+                                ),
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = currentTheme.primary.copy(alpha = 0.08f)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    val hasEvent = eventDetails.trim().isNotEmpty()
+                                    val finalTitle = if (hasEvent) eventTitle else "Events"
+                                    val finalContent = if (hasEvent) eventDetails else "N/A"
+
+                                    Text(
+                                        text = finalTitle.uppercase(),
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Serif,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldColor,
+                                        letterSpacing = 1.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = finalContent,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = currentTheme.textOnBg,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -2435,7 +2479,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
 
                             Divider(color = currentTheme.primary.copy(alpha = 0.08f))
 
-                            if (noticeText.trim().isEmpty() && eventDetails.trim().isEmpty()) {
+                            if (noticeText.trim().isEmpty()) {
                                 Text(
                                     text = "No active notifications or messages posted by the administration today.",
                                     fontSize = 10.sp,
@@ -2445,36 +2489,13 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 )
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (noticeText.trim().isNotEmpty()) {
-                                        Text(
-                                            text = noticeText,
-                                            fontSize = 11.sp,
-                                            color = currentTheme.textOnBg,
-                                            lineHeight = 15.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    if (eventDetails.trim().isNotEmpty()) {
-                                        if (noticeText.trim().isNotEmpty()) {
-                                            Divider(color = currentTheme.primary.copy(alpha = 0.05f))
-                                        }
-                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Text(
-                                                text = eventTitle.uppercase(),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = goldColor,
-                                                fontFamily = FontFamily.Monospace,
-                                                letterSpacing = 0.5.sp
-                                            )
-                                            Text(
-                                                text = eventDetails,
-                                                fontSize = 10.5.sp,
-                                                color = currentTheme.textOnBg,
-                                                lineHeight = 14.sp
-                                            )
-                                        }
-                                    }
+                                    Text(
+                                        text = noticeText,
+                                        fontSize = 11.sp,
+                                        color = currentTheme.textOnBg,
+                                        lineHeight = 15.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                             }
                         }
