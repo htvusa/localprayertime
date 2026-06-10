@@ -2227,7 +2227,8 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 }
 
                 // Right Section: Last Updated (latest masjid update timestamp)
-                val rawLastUpdated = subscribedData["last_updated"]
+                val rawLastUpdated = subscribedData["lastupdate"]
+                    ?: subscribedData["last_updated"]
                     ?: subscribedData["updated_at"]
                     ?: subscribedData["updated"]
                     ?: subscribedData["timestamp"]
