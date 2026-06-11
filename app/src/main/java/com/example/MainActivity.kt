@@ -2582,9 +2582,17 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 }
                             }
 
-                            // Column 3: English Date & Arabic Date only
+                            // Column 3: English Date & Arabic Date only, plus live clock time
                             val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
                             val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
+                            var currentTime by remember { mutableStateOf(LocalTime.now()) }
+                            LaunchedEffect(Unit) {
+                                while (true) {
+                                    delay(1000)
+                                    currentTime = LocalTime.now()
+                                }
+                            }
+                            val timeStr = currentTime.format(DateTimeFormatter.ofPattern("hh:mm a", Locale.US))
 
                             Column(
                                 modifier = Modifier
@@ -2593,6 +2601,15 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.End
                             ) {
+                                Text(
+                                    text = timeStr,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = currentTheme.primary,
+                                    textAlign = TextAlign.End,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
                                 Text(
                                     text = todayGreg,
                                     fontSize = 11.sp,
