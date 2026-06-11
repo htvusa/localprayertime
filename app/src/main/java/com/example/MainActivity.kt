@@ -2467,24 +2467,80 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(end = 40.dp), // Clear the settings button at top-right
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .height(IntrinsicSize.Max)
+                                .heightIn(min = 76.dp, max = 96.dp)
+                                .padding(end = 28.dp), // Clear the settings button at top-right
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left Section: Masjid Name & Masjid Address
+                            // Column 1: Masjid Logo
+                            Box(
+                                modifier = Modifier
+                                    .weight(0.24f)
+                                    .fillMaxHeight(),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                var logoUrl by remember(subscribedUser) {
+                                    mutableStateOf("https://daarulhikmahny.org/lapp/usernames/${subscribedUser}/photo.jpg")
+                                }
+                                coil.compose.SubcomposeAsyncImage(
+                                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                        .data(logoUrl)
+                                        .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Masjid Logo",
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    onError = {
+                                        if (logoUrl.endsWith(".jpg")) {
+                                            logoUrl = "https://daarulhikmahny.org/lapp/usernames/${subscribedUser}/photo.png"
+                                        }
+                                    },
+                                    loading = {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                color = currentTheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    },
+                                    error = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(text = "🕌", fontSize = 24.sp)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Column 2: Masjid Name & Masjid Address
                             Column(
-                                modifier = Modifier.weight(1.1f),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .weight(0.42f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.Start
                             ) {
                                 Text(
                                     text = subscribedName,
-                                    fontSize = 15.sp,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = currentTheme.textOnBg,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                Spacer(modifier = Modifier.height(3.dp))
                                 val locCity = subscribedData["city"] ?: ""
                                 val locState = subscribedData["state"] ?: ""
                                 val displayLoc = listOfNotNull(
@@ -2503,9 +2559,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            // Right Section: English & Arabic Date, and Last Updated
+                            // Column 3: English Date & Arabic Date, and Last Updated
                             val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
                             val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
                             val rawLastUpdated = subscribedData["lastupdate"]
@@ -2517,8 +2571,10 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
 
                             Column(
-                                modifier = Modifier.weight(0.9f),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier
+                                    .weight(0.34f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.End
                             ) {
                                 Text(
@@ -2526,14 +2582,17 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = currentTheme.textOnBg,
-                                    textAlign = TextAlign.End
+                                    textAlign = TextAlign.End,
+                                    maxLines = 1
                                 )
+                                Spacer(modifier = Modifier.height(1.dp))
                                 Text(
                                     text = todayHijri,
                                     fontSize = 9.sp,
                                     color = currentTheme.textSub,
                                     fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.End
+                                    textAlign = TextAlign.End,
+                                    maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row(
@@ -2553,7 +2612,9 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                         fontSize = 10.sp,
                                         color = currentTheme.textOnBg,
                                         fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.End
+                                        textAlign = TextAlign.End,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -2565,13 +2626,12 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .size(32.dp)
-                                .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Pick Masjid Settings",
                                 tint = currentTheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
