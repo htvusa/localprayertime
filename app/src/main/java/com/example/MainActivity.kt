@@ -471,11 +471,9 @@ fun MainAppLayout(
                             }
                         }
                     } else {
-                        // Tab 2: Subscribe Masjid content (vertical scrollable)
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                        // Tab 2: Subscribe Masjid content (fills entire container so child can take fillMaxHeight)
+                        Box(
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             SubscribeMasjidView(viewModel = viewModel, currentTheme = currentTheme)
                         }
@@ -2104,34 +2102,251 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val goldColor = Color(0xFFD4A043)
     val cyanColor = Color(0xFF38EEFF)
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    val activeKey = activePrayer?.key ?: ""
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+
+    @Composable
+    fun Box1Content(
+        fajrJamat: String,
+        sunriseTime: String,
+        zuhrJamat: String,
+        asrJamat: String,
+        maghribJamat: String,
+        ishaJamat: String,
+        jumuah1: String,
+        jumuah2: String,
+        eventTitle: String,
+        eventDetails: String,
+        noticeText: String
     ) {
-        // Main Header with Masjid Info & Settings / Date on the right
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = currentTheme.surface.copy(alpha = 0.65f)
-            ),
-            border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Row 1: Fajr, Sunrise, Zuhr
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Left Section: Masjid Name & Address
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1.05f)
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Fajr",
+                        time = fajrJamat,
+                        isHighlighted = (activeKey == "Fajr"),
+                        theme = currentTheme,
+                        accentColor = emeraldColor
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Sunrise",
+                        time = sunriseTime,
+                        isHighlighted = (activeKey == "Sunrise" || activeKey == "Ishraq"),
+                        theme = currentTheme,
+                        accentColor = cyanColor
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Zuhr",
+                        time = zuhrJamat,
+                        isHighlighted = (activeKey == "Dhuhr"),
+                        theme = currentTheme,
+                        accentColor = emeraldColor
+                    )
+                }
+            }
+
+            // Row 2: Asr, Maghrib, Isha
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Asr",
+                        time = asrJamat,
+                        isHighlighted = (activeKey == "Asr"),
+                        theme = currentTheme,
+                        accentColor = emeraldColor
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Maghrib",
+                        time = maghribJamat,
+                        isHighlighted = (activeKey == "Maghrib"),
+                        theme = currentTheme,
+                        accentColor = emeraldColor
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    MasjidPrayerCell(
+                        title = "Isha",
+                        time = ishaJamat,
+                        isHighlighted = (activeKey == "Isha"),
+                        theme = currentTheme,
+                        accentColor = emeraldColor
+                    )
+                }
+            }
+
+            // Row 3: 1st Jumu'ah (20%) | 2nd Jumu'ah (20%) | Event (60%)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(modifier = Modifier.weight(0.2f)) {
+                    MasjidPrayerCell(
+                        title = "1st Jumu'ah",
+                        time = jumuah1,
+                        isHighlighted = false,
+                        theme = currentTheme,
+                        accentColor = goldColor
+                    )
+                }
+                Box(modifier = Modifier.weight(0.2f)) {
+                    MasjidPrayerCell(
+                        title = "2nd Jumu'ah",
+                        time = jumuah2,
+                        isHighlighted = false,
+                        theme = currentTheme,
+                        accentColor = goldColor
+                    )
+                }
+                Box(modifier = Modifier.weight(0.6f)) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = currentTheme.surface.copy(alpha = 0.4f)
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = currentTheme.primary.copy(alpha = 0.08f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            val hasEvent = eventDetails.trim().isNotEmpty()
+                            val finalTitle = if (hasEvent) eventTitle else "Events"
+                            val finalContent = if (hasEvent) eventDetails else "N/A"
+
+                            Text(
+                                text = finalTitle.uppercase(),
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Serif,
+                                fontWeight = FontWeight.Bold,
+                                color = goldColor,
+                                letterSpacing = 1.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = finalContent,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = currentTheme.textOnBg,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Announcements Board (Completely Center Aligned)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = currentTheme.surface.copy(alpha = 0.5f)
+                ),
+                border = BorderStroke(
+                    width = 1.2.dp,
+                    color = goldColor.copy(alpha = 0.25f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Fallback Mosque Icon with Connected indicator
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = "📢", fontSize = 15.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "MASJID BULLETIN & ANNOUNCEMENTS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = goldColor,
+                            letterSpacing = 1.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.08f))
+
+                    if (noticeText.trim().isEmpty()) {
+                        Text(
+                            text = "No active notifications or messages posted by the administration today.",
+                            fontSize = 10.sp,
+                            fontStyle = FontStyle.Italic,
+                            color = currentTheme.textSub,
+                            lineHeight = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(
+                            text = noticeText,
+                            fontSize = 11.sp,
+                            color = currentTheme.textOnBg,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (subscribedUser.isEmpty()) {
+        // Option A: Not integrated/No subscription
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Subscribed / Unsubscribed clean initial header
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = currentTheme.surface.copy(alpha = 0.65f)
+                ),
+                border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Box(contentAlignment = Alignment.BottomEnd) {
                         Box(
                             modifier = Modifier
@@ -2144,150 +2359,21 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
-                                .background(
-                                    color = if (subscribedUser.isNotEmpty()) emeraldColor else Color(0xFFC0392B),
-                                    shape = CircleShape
-                                )
+                                .background(Color(0xFFC0392B), shape = CircleShape)
                                 .border(1.5.dp, currentTheme.surface, CircleShape)
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column {
-                        Text(
-                            text = if (subscribedUser.isNotEmpty()) subscribedName else "No Masjid Connected",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = currentTheme.textOnBg,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        val locCity = subscribedData["city"] ?: ""
-                        val locState = subscribedData["state"] ?: ""
-                        val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
-                        if (subscribedUser.isNotEmpty() && displayLoc.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(
-                                text = "📍 $displayLoc",
-                                fontSize = 10.sp,
-                                color = currentTheme.textSub,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(
-                                text = "📍 Live display feed active",
-                                fontSize = 10.sp,
-                                color = currentTheme.textSub,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-
-                // Center Section: Current Date (English & Arabic / Hijri)
-                val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
-                val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(0.95f),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "🗓️", fontSize = 18.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            text = todayGreg,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = currentTheme.textOnBg,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = todayHijri,
-                            fontSize = 9.sp,
-                            color = currentTheme.textSub,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // Right Section: Last Updated (latest masjid update timestamp)
-                val rawLastUpdated = subscribedData["lastupdate"]
-                    ?: subscribedData["last_updated"]
-                    ?: subscribedData["updated_at"]
-                    ?: subscribedData["updated"]
-                    ?: subscribedData["timestamp"]
-                    ?: "N/A"
-                val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(0.85f),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "🔄", fontSize = 16.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            text = "LAST UPDATED",
-                            fontSize = 8.sp,
-                            color = goldColor,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = lastUpdated,
-                            fontSize = 10.sp,
-                            color = currentTheme.textOnBg,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // Far Right Section: Settings Icon Button
-                IconButton(
-                    onClick = { showSettingsDialog = true },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Pick Masjid Settings",
-                        tint = currentTheme.primary,
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        text = "No Masjid Connected",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = currentTheme.textOnBg,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
-        }
 
-        if (subscribedUser.isEmpty()) {
-            // Setup / Initial Connection Guide screen when not subscribed
+            // Connection card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -2319,9 +2405,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                         textAlign = TextAlign.Center,
                         lineHeight = 15.sp
                     )
-
                     Spacer(modifier = Modifier.height(6.dp))
-
                     Button(
                         onClick = { showSettingsDialog = true },
                         shape = RoundedCornerShape(8.dp),
@@ -2333,266 +2417,216 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     }
                 }
             }
-        } else {
-            // Retrieve all Masjid timings dynamically and showcase beautifully!
-            val fajrJamat = subscribedData["fajr"] ?: "—"
-            val sunriseTime = subscribedData["sunrise"] ?: "—"
-            val zuhrJamat = subscribedData["zuhr"] ?: "—"
-            val asrJamat = subscribedData["asr"] ?: "—"
-            val maghribJamat = subscribedData["magrib"] ?: "—"
-            val ishaJamat = subscribedData["isha"] ?: "—"
-            val jumuah1 = subscribedData["jumaah"] ?: "—"
-            val jumuah2 = subscribedData["jumaahtwo"] ?: "—"
-            val isEvent = subscribedData["is_event"] ?: "0"
-            val eventTitle = subscribedData["event_title"] ?: "Weekly Program"
-            val eventDetails = subscribedData["event_details"] ?: ""
-            val noticeText = subscribedData["textscroll"] ?: ""
+        }
+    } else {
+        // Option B: Subscribed! Stunning side-by-side split screen Board (Left: Centered Masjid Details & Prayer grids, Right: full height Slideshow image!)
+        val fajrJamat = subscribedData["fajr"] ?: "—"
+        val sunriseTime = subscribedData["sunrise"] ?: "—"
+        val zuhrJamat = subscribedData["zuhr"] ?: "—"
+        val asrJamat = subscribedData["asr"] ?: "—"
+        val maghribJamat = subscribedData["magrib"] ?: "—"
+        val ishaJamat = subscribedData["isha"] ?: "—"
+        val jumuah1 = subscribedData["jumaah"] ?: "—"
+        val jumuah2 = subscribedData["jumaahtwo"] ?: "—"
+        val eventTitle = subscribedData["event_title"] ?: "Weekly Program"
+        val eventDetails = subscribedData["event_details"] ?: ""
+        val noticeText = subscribedData["textscroll"] ?: ""
 
-            val activeKey = activePrayer?.key ?: ""
-            val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-            val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-
-            @Composable
-            fun Box1Content() {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // All Prayer Times Grid Layout (3-Column Layout)
-                    // Row 1: Fajr, Sunrise, Zuhr
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Left Column: Scrollable Masjid Information & grids, completely centered
+            Column(
+                modifier = Modifier
+                    .weight(0.55f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Centered Main Header Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = currentTheme.surface.copy(alpha = 0.65f)
+                    ),
+                    border = BorderStroke(1.dp, currentTheme.primary.copy(alpha = 0.15f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Fajr",
-                                time = fajrJamat,
-                                isHighlighted = (activeKey == "Fajr"),
-                                theme = currentTheme,
-                                accentColor = emeraldColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Sunrise",
-                                time = sunriseTime,
-                                isHighlighted = (activeKey == "Sunrise" || activeKey == "Ishraq"),
-                                theme = currentTheme,
-                                accentColor = cyanColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Zuhr",
-                                time = zuhrJamat,
-                                isHighlighted = (activeKey == "Dhuhr"),
-                                theme = currentTheme,
-                                accentColor = emeraldColor
-                            )
-                        }
-                    }
-
-                    // Row 2: Asr, Maghrib, Isha
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Asr",
-                                time = asrJamat,
-                                isHighlighted = (activeKey == "Asr"),
-                                theme = currentTheme,
-                                accentColor = emeraldColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Maghrib",
-                                time = maghribJamat,
-                                isHighlighted = (activeKey == "Maghrib"),
-                                theme = currentTheme,
-                                accentColor = emeraldColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            MasjidPrayerCell(
-                                title = "Isha",
-                                time = ishaJamat,
-                                isHighlighted = (activeKey == "Isha"),
-                                theme = currentTheme,
-                                accentColor = emeraldColor
-                            )
-                        }
-                    }
-
-                    // Row 3: 1st Jumu'ah, 2nd Jumu'ah, Event (3-column split)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(0.2f)) {
-                            MasjidPrayerCell(
-                                title = "1st Jumu'ah",
-                                time = jumuah1,
-                                isHighlighted = false,
-                                theme = currentTheme,
-                                accentColor = goldColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(0.2f)) {
-                            MasjidPrayerCell(
-                                title = "2nd Jumu'ah",
-                                time = jumuah2,
-                                isHighlighted = false,
-                                theme = currentTheme,
-                                accentColor = goldColor
-                            )
-                        }
-                        Box(modifier = Modifier.weight(0.6f)) {
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = currentTheme.surface.copy(alpha = 0.4f)
-                                ),
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = currentTheme.primary.copy(alpha = 0.08f)
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(currentTheme.primary.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    val hasEvent = eventDetails.trim().isNotEmpty()
-                                    val finalTitle = if (hasEvent) eventTitle else "Events"
-                                    val finalContent = if (hasEvent) eventDetails else "N/A"
+                                Text(text = "🕌", fontSize = 24.sp)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(11.dp)
+                                    .background(
+                                        color = emeraldColor,
+                                        shape = CircleShape
+                                    )
+                                    .border(1.5.dp, currentTheme.surface, CircleShape)
+                            )
+                        }
 
-                                    Text(
-                                        text = finalTitle.uppercase(),
-                                        fontSize = 9.sp,
-                                        fontFamily = FontFamily.Serif,
-                                        fontWeight = FontWeight.Bold,
-                                        color = goldColor,
-                                        letterSpacing = 1.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = finalContent,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = currentTheme.textOnBg,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = subscribedName,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = currentTheme.textOnBg,
+                                textAlign = TextAlign.Center
+                            )
+                            val locCity = subscribedData["city"] ?: ""
+                            val locState = subscribedData["state"] ?: ""
+                            val displayLoc = listOfNotNull(locCity.trim().takeIf { it.isNotEmpty() }, locState.trim().takeIf { it.isNotEmpty() }).joinToString(", ")
+                            if (displayLoc.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "📍 $displayLoc",
+                                    fontSize = 11.sp,
+                                    color = currentTheme.textSub,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(2.dp))
+                        Divider(color = currentTheme.primary.copy(alpha = 0.08f), thickness = 1.dp)
 
-                    // Announcements Board
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = currentTheme.surface.copy(alpha = 0.5f)
-                        ),
-                        border = BorderStroke(
-                            width = 1.2.dp,
-                            color = goldColor.copy(alpha = 0.25f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        // Centered Date Information
+                        val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
+                        val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = todayGreg,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = currentTheme.textOnBg,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = todayHijri,
+                                fontSize = 10.sp,
+                                color = currentTheme.textSub,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        Divider(color = currentTheme.primary.copy(alpha = 0.08f), thickness = 1.dp)
+
+                        // Center aligned Last Updated metadata Row & Settings Button
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
                         ) {
+                            val rawLastUpdated = subscribedData["lastupdate"]
+                                ?: subscribedData["last_updated"]
+                                ?: subscribedData["updated_at"]
+                                ?: subscribedData["updated"]
+                                ?: subscribedData["timestamp"]
+                                ?: "N/A"
+                            val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text(text = "📢", fontSize = 15.sp)
-                                Text(
-                                    text = "MASJID BULLETIN & ANNOUNCEMENTS",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = goldColor,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
-                            Divider(color = currentTheme.primary.copy(alpha = 0.08f))
-
-                            if (noticeText.trim().isEmpty()) {
-                                Text(
-                                    text = "No active notifications or messages posted by the administration today.",
-                                    fontSize = 10.sp,
-                                    fontStyle = FontStyle.Italic,
-                                    color = currentTheme.textSub,
-                                    lineHeight = 14.sp
-                                )
-                            } else {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "🔄", fontSize = 14.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(horizontalAlignment = Alignment.Start) {
                                     Text(
-                                        text = noticeText,
+                                        text = "LAST UPDATED",
+                                        fontSize = 8.sp,
+                                        color = goldColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    Text(
+                                        text = lastUpdated,
                                         fontSize = 11.sp,
                                         color = currentTheme.textOnBg,
-                                        lineHeight = 15.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
+                            }
+
+                            IconButton(
+                                onClick = { showSettingsDialog = true },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(currentTheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Pick Masjid Settings",
+                                    tint = currentTheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
                 }
+
+                OrnamentRow(color = currentTheme.primary)
+
+                Box1Content(
+                    fajrJamat = fajrJamat,
+                    sunriseTime = sunriseTime,
+                    zuhrJamat = zuhrJamat,
+                    asrJamat = asrJamat,
+                    maghribJamat = maghribJamat,
+                    ishaJamat = ishaJamat,
+                    jumuah1 = jumuah1,
+                    jumuah2 = jumuah2,
+                    eventTitle = eventTitle,
+                    eventDetails = eventDetails,
+                    noticeText = noticeText
+                )
+
+                OrnamentRow(color = currentTheme.primary.copy(alpha = 0.3f))
             }
 
-            OrnamentRow(color = currentTheme.primary)
-
-            if (isPortrait) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box1Content()
-                    MasjidSlideshowWidget(
-                        viewModel = viewModel,
-                        currentTheme = currentTheme,
-                        modifier = Modifier.height(300.dp)
-                    )
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.weight(0.6f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box1Content()
-                    }
-
-                    Column(
-                        modifier = Modifier.weight(0.4f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MasjidSlideshowWidget(
-                            viewModel = viewModel,
-                            currentTheme = currentTheme,
-                            modifier = Modifier.height(300.dp)
-                        )
-                    }
-                }
+            // Right Column: Slideshow Image perfectly covering 100% full height from top to bottom on the right panel!
+            Box(
+                modifier = Modifier
+                    .weight(0.45f)
+                    .fillMaxHeight()
+            ) {
+                MasjidSlideshowWidget(
+                    viewModel = viewModel,
+                    currentTheme = currentTheme,
+                    modifier = Modifier.fillMaxHeight()
+                )
             }
-
-            OrnamentRow(color = currentTheme.primary.copy(alpha = 0.3f))
         }
+    }
 
         // Setting modal popup which implements searching, choosing, connecting, and history records
         if (showSettingsDialog) {
@@ -2846,9 +2880,6 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                 shape = RoundedCornerShape(14.dp)
             )
         }
-
-
-    }
 }
 
 // ── Settings dialog Popups ──
@@ -3229,6 +3260,145 @@ fun AmbientSettingsPopup(
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected) currentTheme.primary else currentTheme.textOnBg
                                 )
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // Local Prayer Times Caution Adjustments (Fajr, Sunrise, Maghrib)
+                    Text(
+                        text = "⏱ LOCAL CAUTION ADJUSTMENTS (MINUTES)",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.04f))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val fajrOffset by viewModel.fajrOffset.collectAsStateWithLifecycle()
+                        val sunriseOffset by viewModel.sunriseOffset.collectAsStateWithLifecycle()
+                        val maghribOffset by viewModel.maghribOffset.collectAsStateWithLifecycle()
+
+                        // Fajr offset
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "Fajr Adjustment", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = currentTheme.textOnBg)
+                                Text(text = "Add / subtract Fajr minutes", fontSize = 10.sp, color = currentTheme.textSub)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { viewModel.updateFajrOffset(fajrOffset - 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                                Text(
+                                    text = if (fajrOffset > 0) "+$fajrOffset m" else if (fajrOffset == 0) "0 m" else "$fajrOffset m",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg,
+                                    modifier = Modifier.width(44.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                IconButton(
+                                    onClick = { viewModel.updateFajrOffset(fajrOffset + 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                            }
+                        }
+
+                        Divider(color = currentTheme.primary.copy(alpha = 0.06f))
+
+                        // Sunrise offset
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "Sunrise Adjustment", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = currentTheme.textOnBg)
+                                Text(text = "Add / subtract Sunrise minutes", fontSize = 10.sp, color = currentTheme.textSub)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { viewModel.updateSunriseOffset(sunriseOffset - 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                                Text(
+                                    text = if (sunriseOffset > 0) "+$sunriseOffset m" else if (sunriseOffset == 0) "0 m" else "$sunriseOffset m",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg,
+                                    modifier = Modifier.width(44.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                IconButton(
+                                    onClick = { viewModel.updateSunriseOffset(sunriseOffset + 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                            }
+                        }
+
+                        Divider(color = currentTheme.primary.copy(alpha = 0.06f))
+
+                        // Maghrib offset
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "Maghrib Adjustment", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = currentTheme.textOnBg)
+                                Text(text = "Add / subtract Maghrib minutes", fontSize = 10.sp, color = currentTheme.textSub)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { viewModel.updateMaghribOffset(maghribOffset - 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
+                                Text(
+                                    text = if (maghribOffset > 0) "+$maghribOffset m" else if (maghribOffset == 0) "0 m" else "$maghribOffset m",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = currentTheme.textOnBg,
+                                    modifier = Modifier.width(44.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                IconButton(
+                                    onClick = { viewModel.updateMaghribOffset(maghribOffset + 1) },
+                                    modifier = Modifier.size(28.dp).background(currentTheme.primary.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = currentTheme.primary)
+                                }
                             }
                         }
                     }

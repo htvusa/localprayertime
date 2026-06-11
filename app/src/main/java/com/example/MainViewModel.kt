@@ -71,6 +71,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _appOrientation = MutableStateFlow(prefs.getString("app_orientation", "portrait") ?: "portrait")
     val appOrientation: StateFlow<String> = _appOrientation.asStateFlow()
 
+    // Local caution offsets (minutes) for Fajr, Sunrise, and Maghrib
+    private val _fajrOffset = MutableStateFlow(prefs.getInt("adj_fajr", 0))
+    val fajrOffset: StateFlow<Int> = _fajrOffset.asStateFlow()
+
+    private val _sunriseOffset = MutableStateFlow(prefs.getInt("adj_sunrise", 0))
+    val sunriseOffset: StateFlow<Int> = _sunriseOffset.asStateFlow()
+
+    private val _maghribOffset = MutableStateFlow(prefs.getInt("adj_maghrib", 0))
+    val maghribOffset: StateFlow<Int> = _maghribOffset.asStateFlow()
+
     // ── GitHub Auto Update Configuration ──
     private val _githubOwner = MutableStateFlow(prefs.getString("github_owner", "htvusa") ?: "htvusa")
     val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
@@ -333,6 +343,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { _uiEvents.emit("Prayer time font size updated to $newSize") }
     }
 
+    fun updateFajrOffset(minutes: Int) {
+        _fajrOffset.value = minutes
+        prefs.edit().putInt("adj_fajr", minutes).apply()
+        updateSchedules()
+        viewModelScope.launch { _uiEvents.emit("Fajr adjustment updated to $minutes min") }
+    }
+
+    fun updateSunriseOffset(minutes: Int) {
+        _sunriseOffset.value = minutes
+        prefs.edit().putInt("adj_sunrise", minutes).apply()
+        updateSchedules()
+        viewModelScope.launch { _uiEvents.emit("Sunrise adjustment updated to $minutes min") }
+    }
+
+    fun updateMaghribOffset(minutes: Int) {
+        _maghribOffset.value = minutes
+        prefs.edit().putInt("adj_maghrib", minutes).apply()
+        updateSchedules()
+        viewModelScope.launch { _uiEvents.emit("Maghrib adjustment updated to $minutes min") }
+    }
+
     fun updateAppOrientation(newOrientation: String) {
         _appOrientation.value = newOrientation
         prefs.edit().putString("app_orientation", newOrientation).apply()
@@ -505,9 +536,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val pts = sunriseStr.split(":")
                     val h = pts[0].toInt()
                     val m = pts[1].toInt()
-                    val totalMins = h * 60 + m + 22
-                    val derivedH = (totalMins / 60) % 24
-                    val derivedM = totalMins % 60
+                    val baseMins = h * 60 + m + _sunriseOffset.value // Use adjusted Sunrise base so Ishraq is updated as well
+                    val totalMins = baseMins + 22
+                    val derivedH = ((totalMins / 60) % 24 + 24) % 24
+                    val derivedM = (totalMins % 60 + 60) % 60
                     val derivedTime = LocalDateTime.of(date, LocalTime.of(derivedH, derivedM))
                     val zdt = ZonedDateTime.of(derivedTime, defaultZone)
                     val ts = String.format(Locale.US, "%02d:%02d", derivedH, derivedM)
@@ -519,9 +551,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val pts = trimmed.split(":")
                     val h = pts[0].toInt()
                     val m = pts[1].toInt()
-                    val ldt = LocalDateTime.of(date, LocalTime.of(h, m))
+                    
+                    var totalMins = h * 60 + m
+                    if (apiKey == "Fajr") {
+                        totalMins += _fajrOffset.value
+                    } else if (apiKey == "Sunrise") {
+                        totalMins += _sunriseOffset.value
+                    } else if (apiKey == "Maghrib") {
+                        totalMins += _maghribOffset.value
+                    }
+
+                    val finalMins = (totalMins % 1440 + 1440) % 1440
+                    val finalH = finalMins / 60
+                    val finalM = finalMins % 60
+
+                    val ldt = LocalDateTime.of(date, LocalTime.of(finalH, finalM))
                     val zdt = ZonedDateTime.of(ldt, defaultZone)
-                    mappedList.add(PrayerTime(dispName, apiKey, zdt, String.format(Locale.US, "%02d:%02d", h, m)))
+                    mappedList.add(PrayerTime(dispName, apiKey, zdt, String.format(Locale.US, "%02d:%02d", finalH, finalM)))
                 }
             } catch (e: Exception) {
                 Log.w("PrayerTimes", "Failed parsing key $apiKey", e)
