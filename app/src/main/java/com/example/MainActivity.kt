@@ -2469,7 +2469,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 .fillMaxWidth()
                                 .height(IntrinsicSize.Max)
                                 .heightIn(min = 76.dp, max = 96.dp)
-                                .padding(end = 28.dp), // Clear the settings button at top-right
+                                .padding(end = 24.dp), // Clear the settings button at top-right
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -2524,10 +2524,18 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                 )
                             }
 
-                            // Column 2: Masjid Name & Masjid Address
+                            // Column 2: Masjid Name, Masjid Address & Update Timestamp
+                            val rawLastUpdated = subscribedData["lastupdate"]
+                                ?: subscribedData["last_updated"]
+                                ?: subscribedData["updated_at"]
+                                ?: subscribedData["updated"]
+                                ?: subscribedData["timestamp"]
+                                ?: "N/A"
+                            val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
+
                             Column(
                                 modifier = Modifier
-                                    .weight(0.42f)
+                                    .weight(0.44f)
                                     .fillMaxHeight(),
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.Start
@@ -2540,7 +2548,6 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
                                 val locCity = subscribedData["city"] ?: ""
                                 val locState = subscribedData["state"] ?: ""
                                 val displayLoc = listOfNotNull(
@@ -2548,31 +2555,40 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     locState.trim().takeIf { it.isNotEmpty() }
                                 ).joinToString(", ")
                                 if (displayLoc.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "📍 $displayLoc",
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
                                         color = currentTheme.textSub,
                                         fontWeight = FontWeight.Medium,
-                                        maxLines = 2,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    Text(
+                                        text = "🔄 $lastUpdated",
+                                        fontSize = 9.sp,
+                                        color = goldColor,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
 
-                            // Column 3: English Date & Arabic Date, and Last Updated
+                            // Column 3: English Date & Arabic Date only
                             val todayGreg = viewModel.gregorianText.collectAsStateWithLifecycle().value
                             val todayHijri = viewModel.hijriText.collectAsStateWithLifecycle().value
-                            val rawLastUpdated = subscribedData["lastupdate"]
-                                ?: subscribedData["last_updated"]
-                                ?: subscribedData["updated_at"]
-                                ?: subscribedData["updated"]
-                                ?: subscribedData["timestamp"]
-                                ?: "N/A"
-                            val lastUpdated = if (subscribedUser.isNotEmpty() && rawLastUpdated.trim().isNotEmpty()) rawLastUpdated else "N/A"
 
                             Column(
                                 modifier = Modifier
-                                    .weight(0.34f)
+                                    .weight(0.32f)
                                     .fillMaxHeight(),
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.End
@@ -2585,7 +2601,7 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     textAlign = TextAlign.End,
                                     maxLines = 1
                                 )
-                                Spacer(modifier = Modifier.height(1.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = todayHijri,
                                     fontSize = 9.sp,
@@ -2594,44 +2610,22 @@ fun SubscribeMasjidView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                                     textAlign = TextAlign.End,
                                     maxLines = 1
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Text(
-                                        text = "🔄 UPDATED: ",
-                                        fontSize = 8.sp,
-                                        color = goldColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                    Text(
-                                        text = lastUpdated,
-                                        fontSize = 10.sp,
-                                        color = currentTheme.textOnBg,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.End,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
                             }
                         }
 
-                        // Settings Icon pinned top-right
+                        // Settings Icon pinned closer to top-right corner, no background container
                         IconButton(
                             onClick = { showSettingsDialog = true },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .size(32.dp)
+                                .offset(x = 8.dp, y = (-8).dp)
+                                .size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Pick Masjid Settings",
                                 tint = currentTheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
