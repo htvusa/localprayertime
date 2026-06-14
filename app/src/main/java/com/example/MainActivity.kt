@@ -526,6 +526,24 @@ fun MainAppLayout(
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
+                    
+                    // Explicitly grant URI permission to common package installers to cover different Android OS implementations
+                    val installers = listOf("com.google.android.packageinstaller", "com.android.packageinstaller")
+                    for (installer in installers) {
+                        try {
+                            context.grantUriPermission(installer, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        } catch (ignored: Exception) {}
+                    }
+                    
+                    // Also dynamically query resolved activities and grant permissions to them
+                    try {
+                        val resInfoList = context.packageManager.queryIntentActivities(installIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                        for (resolveInfo in resInfoList) {
+                            val packageName = resolveInfo.activityInfo.packageName
+                            context.grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    } catch (ignored: java.lang.Exception) {}
+                    
                     context.startActivity(installIntent)
                 } catch (e: Exception) {
                     Log.e("DirectInstall", "Failed to start package installer", e)

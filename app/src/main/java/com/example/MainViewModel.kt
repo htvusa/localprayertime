@@ -1675,7 +1675,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     _downloadProgress.value = 1.0f
                     _downloadedApkFile.value = apkFile
-                    _uiEvents.emit("Download completed successfully!")
+                    val fileSizeKb = apkFile.length() / 1024
+                    _uiEvents.emit("Download completed successfully! Size: $fileSizeKb KB")
                 }
             } catch (e: Exception) {
                 Log.e("ApkDownload", "Failed to download update", e)
