@@ -1651,7 +1651,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     val totalBytes = body.contentLength()
-                    val apkFile = java.io.File(context.cacheDir, "localprayertime-update-${_latestVersionName.value}.apk")
+                    val parentDir = context.externalCacheDir ?: context.cacheDir
+                    val apkFile = java.io.File(parentDir, "localprayertime-update-${_latestVersionName.value}.apk")
                     if (apkFile.exists()) {
                         apkFile.delete()
                     }
