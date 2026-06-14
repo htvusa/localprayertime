@@ -184,18 +184,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _quranProgress = MutableStateFlow(0f) // 0 to 1
     val quranProgress: StateFlow<Float> = _quranProgress.asStateFlow()
 
-    private val _azanAudioOptions = MutableStateFlow<List<String>>(emptyList())
-    val azanAudioOptions: StateFlow<List<String>> = _azanAudioOptions.asStateFlow()
-
-    private val _quranQaris = MutableStateFlow<List<String>>(emptyList())
-    val quranQaris: StateFlow<List<String>> = _quranQaris.asStateFlow()
-
-    private val _selectedQari = MutableStateFlow(prefs.getString("selected_qari", "mishari_rashid_al_afasy") ?: "mishari_rashid_al_afasy")
-    val selectedQari: StateFlow<String> = _selectedQari.asStateFlow()
-
-    private val _settingsRevision = MutableStateFlow(0)
-    val settingsRevision: StateFlow<Int> = _settingsRevision.asStateFlow()
-
     // Nasheed Player Properties
     private val _nasheedTracks = MutableStateFlow<List<NasheedTrack>>(emptyList())
     val nasheedTracks: StateFlow<List<NasheedTrack>> = _nasheedTracks.asStateFlow()
@@ -302,8 +290,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Initial prayer, weather extraction and nasheeds fetching
         fetchBackupNasheedManifest()
         fetchWazManifest()
-        fetchAzanAudioOptions()
-        fetchQuranQaris()
         updateSchedules()
         fetchWeatherDetails()
 
@@ -722,10 +708,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (_azanOn.value && duration.toMillis() in 0..1000L) {
                 val key = next.key
                 if (lastPlayedAzanKey != key) {
-                    if (isPrayerAzanEnabled(key)) {
-                        triggerAzanMediaAudio(key)
-                        lastPlayedAzanKey = key
-                    }
+                    triggerAzanMediaAudio(isFajr = key.equals("Fajr", ignoreCase = true))
+                    lastPlayedAzanKey = key
                 }
             }
         } else {
@@ -734,24 +718,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Play Azan MP3 file via direct MediaPlayer stream
-    private fun triggerAzanMediaAudio(key: String) {
+    private fun triggerAzanMediaAudio(isFajr: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             azanPlayer?.release()
             azanPlayer = null
 
-            val preferredFile = getPrayerAzanFile(key)
-            val urls = mutableListOf<String>()
-            if (preferredFile.isNotEmpty()) {
-                urls.add("https://raw.githubusercontent.com/htvusa/pa/master/azan/$preferredFile")
-            }
-            if (key.equals("Fajr", ignoreCase = true)) {
-                urls.add("https://raw.githubusercontent.com/htvusa/pa/master/fajrAzan.mp3")
-                urls.add("https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3")
+            val urls = if (isFajr) {
+                listOf(
+                    "https://raw.githubusercontent.com/htvusa/pa/master/fajrAzan.mp3",
+                    "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
+                    "https://www.islamcan.com/audio/azan/rema.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                )
             } else {
-                urls.add("https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3")
+                listOf(
+                    "https://raw.githubusercontent.com/htvusa/pa/master/azan.mp3",
+                    "https://www.islamcan.com/audio/azan/rema.mp3",
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                )
             }
-            urls.add("https://www.islamcan.com/audio/azan/rema.mp3")
-            urls.add("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
 
             for (url in urls) {
                 try {
@@ -768,10 +753,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         start()
                     }
                     azanPlayer = player
-                    if (key.equals("Fajr", ignoreCase = true) && url.contains("fajrAzan.mp3")) {
+                    if (isFajr && url.contains("fajrAzan.mp3")) {
                         _uiEvents.emit("Fajr Azan activated at prayer time!")
                     } else {
-                        _uiEvents.emit("$key Azan activated: $preferredFile")
+                        _uiEvents.emit("Azan activated at prayer time!")
                     }
                     return@launch
                 } catch (e: Exception) {
@@ -817,13 +802,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _wazStatus.value = "Ready"
 
             val fileCode = String.format(Locale.US, "%03d", finalIdx)
-            val qariVal = _selectedQari.value
-            val urls = mutableListOf<String>()
-            if (qariVal.isNotEmpty()) {
-                urls.add("https://raw.githubusercontent.com/htvusa/pa/master/quran/$qariVal/$fileCode.mp3")
-            }
-            urls.add("https://raw.githubusercontent.com/htvusa/pa/master/quran/$fileCode.mp3")
-            urls.add("https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/$fileCode.mp3")
+            val urls = listOf(
+                "https://raw.githubusercontent.com/htvusa/pa/master/quran/$fileCode.mp3",
+                "https://download.quranicaudio.com/quran/mishari_rashid_al_afasy/$fileCode.mp3"
+            )
 
             for (url in urls) {
                 try {
@@ -1568,14 +1550,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 _latestVersionDescription.value = release.body ?: release.name ?: "New version available on GitHub."
                                 _latestReleasePageUrl.value = release.html_url ?: ""
                                 
-                                // Direct raw APK download URL or Release Asset URL
-                                val apkAsset = release.assets?.find { it.name?.endsWith(".apk") == true }
-                                if (apkAsset != null && !apkAsset.browser_download_url.isNullOrEmpty()) {
-                                    _latestApkUrl.value = apkAsset.browser_download_url
-                                } else {
-                                    // Fallback to raw GitHub file URL with .build-outputs folder path as requested
-                                    _latestApkUrl.value = "https://raw.githubusercontent.com/htvusa/localprayertime/main/.build-outputs/app-debug.apk"
-                                }
+                                // Direct raw APK download URL requested by user
+                                _latestApkUrl.value = "https://raw.githubusercontent.com/htvusa/localprayertime/main/.build-outputs/app-debug.apk"
                                 if (manuallyTriggered) {
                                     _uiEvents.emit("New update $tag is available!")
                                 }
@@ -1651,8 +1627,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     val totalBytes = body.contentLength()
-                    val parentDir = context.externalCacheDir ?: context.cacheDir
-                    val apkFile = java.io.File(parentDir, "localprayertime-update-${_latestVersionName.value}.apk")
+                    val apkFile = java.io.File(context.cacheDir, "localprayertime-update-${_latestVersionName.value}.apk")
                     if (apkFile.exists()) {
                         apkFile.delete()
                     }
@@ -1675,8 +1650,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     _downloadProgress.value = 1.0f
                     _downloadedApkFile.value = apkFile
-                    val fileSizeKb = apkFile.length() / 1024
-                    _uiEvents.emit("Download completed successfully! Size: $fileSizeKb KB")
+                    _uiEvents.emit("Download completed successfully!")
                 }
             } catch (e: Exception) {
                 Log.e("ApkDownload", "Failed to download update", e)
@@ -1711,113 +1685,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val cleanCurrent = current.trim().removePrefix("v").removePrefix("V")
             val cleanLatest = latest.trim().removePrefix("v").removePrefix("V")
             cleanLatest != cleanCurrent
-        }
-    }
-
-    private fun fetchAzanAudioOptions() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val url = "https://raw.githubusercontent.com/htvusa/pa/master/azan/manifest.json"
-                val request = Request.Builder().url(url).build()
-                httpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful && response.body != null) {
-                        val bodyString = response.body!!.string()
-                        val listAdapter = moshi.adapter(List::class.java)
-                        val items = listAdapter.fromJson(bodyString) as? List<*>
-                        if (items != null) {
-                            val list = items.mapNotNull { it?.toString() }
-                            if (list.isNotEmpty()) {
-                                _azanAudioOptions.value = list
-                                return@launch
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("AzanOptions", "Failed loading azan options manifest", e)
-            }
-            _azanAudioOptions.value = listOf("fajrAzan.mp3", "azan.mp3")
-        }
-    }
-
-    private fun fetchQuranQaris() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val url = "https://raw.githubusercontent.com/htvusa/pa/master/quran/manifest.json"
-                val request = Request.Builder().url(url).build()
-                httpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful && response.body != null) {
-                        val bodyString = response.body!!.string()
-                        try {
-                            val listAdapter = moshi.adapter(List::class.java)
-                            val items = listAdapter.fromJson(bodyString) as? List<*>
-                            if (items != null) {
-                                val list = items.mapNotNull { it?.toString() }
-                                if (list.isNotEmpty()) {
-                                    _quranQaris.value = list
-                                    if (_selectedQari.value.isEmpty() || !list.contains(_selectedQari.value)) {
-                                        _selectedQari.value = list[0]
-                                    }
-                                    return@launch
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e("QuranQari", "Failed parsing manifest as list of strings, trying list of maps", e)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("QuranQari", "Failed loading quran manifest", e)
-            }
-            val fallback = listOf("mishari_rashid_al_afasy", "abdul_basit_murattal", "saad_al_ghamdi", "maher_al_muaiqly")
-            _quranQaris.value = fallback
-            if (_selectedQari.value.isEmpty() || !fallback.contains(_selectedQari.value)) {
-                _selectedQari.value = fallback[0]
-            }
-        }
-    }
-
-    fun updateSelectedQari(qari: String) {
-        _selectedQari.value = qari
-        prefs.edit().putString("selected_qari", qari).apply()
-        _settingsRevision.value += 1
-        viewModelScope.launch { _uiEvents.emit("Qari reciter updated to $qari") }
-    }
-
-    fun isPrayerAzanEnabled(key: String): Boolean {
-        _settingsRevision.value
-        return prefs.getBoolean("azan_enabled_$key", true)
-    }
-
-    fun setPrayerAzanEnabled(key: String, enabled: Boolean) {
-        prefs.edit().putBoolean("azan_enabled_$key", enabled).apply()
-        _settingsRevision.value += 1
-        viewModelScope.launch {
-            _uiEvents.emit("${if (enabled) "Enabled" else "Disabled"} notifications for $key")
-        }
-    }
-
-    fun getPrayerAzanFile(key: String): String {
-        _settingsRevision.value
-        val isZuhrToIsha = key in listOf("Dhuhr", "Asr", "Maghrib", "Isha")
-        return if (isZuhrToIsha) {
-            prefs.getString("azan_select_shared_zuhr_isha", "azan.mp3") ?: "azan.mp3"
-        } else {
-            val defaultVal = if (key == "Fajr") "fajrAzan.mp3" else "azan.mp3"
-            prefs.getString("azan_select_$key", defaultVal) ?: defaultVal
-        }
-    }
-
-    fun setPrayerAzanFile(key: String, file: String) {
-        val isZuhrToIsha = key in listOf("Dhuhr", "Asr", "Maghrib", "Isha")
-        if (isZuhrToIsha) {
-            prefs.edit().putString("azan_select_shared_zuhr_isha", file).apply()
-        } else {
-            prefs.edit().putString("azan_select_$key", file).apply()
-        }
-        _settingsRevision.value += 1
-        viewModelScope.launch {
-            _uiEvents.emit("Updated azan option: $file")
         }
     }
 }
