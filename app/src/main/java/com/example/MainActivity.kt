@@ -1658,6 +1658,16 @@ fun QuranPlayerView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
     val status by viewModel.quranStatus.collectAsStateWithLifecycle()
     val progress by viewModel.quranProgress.collectAsStateWithLifecycle()
     val volume by viewModel.quranVolume.collectAsStateWithLifecycle()
+    val selectedQari by viewModel.selectedQari.collectAsStateWithLifecycle()
+
+    val formattedQari = remember(selectedQari) {
+        selectedQari.replace('_', ' ').replace('-', ' ').split(" ")
+            .filter { it.isNotEmpty() }
+            .joinToString(" ") { word ->
+                word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+            }
+            .ifEmpty { "Mishari Al-Afasi" }
+    }
 
     var dropdownOpen by remember { mutableStateOf(false) }
 
@@ -1700,7 +1710,7 @@ fun QuranPlayerView(viewModel: MainViewModel, currentTheme: PrayerTheme) {
                     )
                 }
                 Text(
-                    text = "Mishari Al-Afasi · $status",
+                    text = "$formattedQari · $status",
                     fontSize = 10.sp,
                     color = currentTheme.textSub
                 )
@@ -3543,7 +3553,283 @@ fun AmbientSettingsPopup(
 
                     Divider(color = currentTheme.primary.copy(alpha = 0.1f))
 
-                    // 7. System Updates
+                    // 7. HOLY QURAN QARI RECITER
+                    Text(
+                        text = "📖 HOLY QURAN QARI RECITER",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    val qariList by viewModel.quranQaris.collectAsStateWithLifecycle()
+                    val selectedQari by viewModel.selectedQari.collectAsStateWithLifecycle()
+                    var qariExpanded by remember { mutableStateOf(false) }
+
+                    val formattedSelectedQari = remember(selectedQari) {
+                        selectedQari.replace('_', ' ').replace('-', ' ').split(" ")
+                            .filter { it.isNotEmpty() }
+                            .joinToString(" ") { word ->
+                                word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+                            }.ifEmpty { "Mishari Al-Afasi" }
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(currentTheme.primary.copy(alpha = 0.04f))
+                                .border(1.dp, currentTheme.primary.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                .clickable { qariExpanded = !qariExpanded }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = formattedSelectedQari,
+                                fontSize = 12.sp,
+                                color = currentTheme.textOnBg,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = if (qariExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Dropdown Indicator",
+                                tint = currentTheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = qariExpanded,
+                            onDismissRequest = { qariExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .background(currentTheme.surface)
+                                .border(1.dp, currentTheme.primary.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        ) {
+                            qariList.forEach { qari ->
+                                val formattedName = qari.replace('_', ' ').replace('-', ' ').split(" ")
+                                    .filter { it.isNotEmpty() }
+                                    .joinToString(" ") { word ->
+                                        word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+                                    }
+                                DropdownMenuItem(
+                                    text = { Text(text = formattedName, fontSize = 12.sp, color = currentTheme.textOnBg) },
+                                    onClick = {
+                                        viewModel.updateSelectedQari(qari)
+                                        qariExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 8. CUSTOM AZAN NOTIFICATIONS Settings
+                    Text(
+                        text = "🕋 AZAN VOICE NOTIFICATIONS",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentTheme.primary,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    val azanOptions by viewModel.azanAudioOptions.collectAsStateWithLifecycle()
+                    val revision by viewModel.settingsRevision.collectAsStateWithLifecycle()
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(currentTheme.primary.copy(alpha = 0.04f))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        val individualPrayers = listOf(
+                            "Imsak" to "Imsak", 
+                            "Fajr" to "Fajr", 
+                            "Sunrise" to "Sunrise", 
+                            "Ishraq" to "Ishraq"
+                        )
+
+                        individualPrayers.forEach { (disp, key) ->
+                            val enabled = viewModel.isPrayerAzanEnabled(key)
+                            val selectedFile = viewModel.getPrayerAzanFile(key)
+                            var azanExpanded by remember { mutableStateOf(false) }
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = disp, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = currentTheme.textOnBg)
+                                        Text(text = "Notification Voice settings", fontSize = 10.sp, color = currentTheme.textSub)
+                                    }
+                                    Switch(
+                                        checked = enabled,
+                                        onCheckedChange = { viewModel.setPrayerAzanEnabled(key, it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = currentTheme.primary,
+                                            checkedTrackColor = currentTheme.primary.copy(alpha = 0.4f),
+                                            uncheckedThumbColor = currentTheme.textSub,
+                                            uncheckedTrackColor = currentTheme.primary.copy(alpha = 0.1f)
+                                        )
+                                    )
+                                }
+
+                                if (enabled) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Box(modifier = Modifier.fillMaxWidth().padding(start = 12.dp)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(currentTheme.primary.copy(alpha = 0.03f))
+                                                .border(1.dp, currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                                .clickable { azanExpanded = !azanExpanded }
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = selectedFile,
+                                                fontSize = 11.sp,
+                                                color = currentTheme.textOnBg,
+                                                fontWeight = FontWeight.Normal
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = "Drop",
+                                                tint = currentTheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        DropdownMenu(
+                                            expanded = azanExpanded,
+                                            onDismissRequest = { azanExpanded = false },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.75f)
+                                                .background(currentTheme.surface)
+                                                .border(1.dp, currentTheme.primary.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        ) {
+                                            azanOptions.forEach { option ->
+                                                DropdownMenuItem(
+                                                    text = { Text(text = option, fontSize = 11.sp, color = currentTheme.textOnBg) },
+                                                    onClick = {
+                                                        viewModel.setPrayerAzanFile(key, option)
+                                                        azanExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Divider(color = currentTheme.primary.copy(alpha = 0.05f))
+                        }
+
+                        val sharedKeys = listOf(
+                            "Zuhr" to "Dhuhr", 
+                            "Asr" to "Asr", 
+                            "Maghrib" to "Maghrib", 
+                            "Isha" to "Isha"
+                        )
+                        val sharedSelectedFile = viewModel.getPrayerAzanFile("Dhuhr")
+                        var sharedAzanExpanded by remember { mutableStateOf(false) }
+
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Zuhr to Isha Azan Options", 
+                                fontSize = 11.sp, 
+                                fontWeight = FontWeight.Bold, 
+                                color = currentTheme.primaryVariant,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+
+                            sharedKeys.forEach { (disp, key) ->
+                                val enabled = viewModel.isPrayerAzanEnabled(key)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = "$disp Alert Toggle", fontSize = 11.sp, color = currentTheme.textOnBg)
+                                    Switch(
+                                        checked = enabled,
+                                        onCheckedChange = { viewModel.setPrayerAzanEnabled(key, it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = currentTheme.primary,
+                                            checkedTrackColor = currentTheme.primary.copy(alpha = 0.4f),
+                                            uncheckedThumbColor = currentTheme.textSub,
+                                            uncheckedTrackColor = currentTheme.primary.copy(alpha = 0.1f)
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(text = "Shared Zuhr - Isha Sound Track", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = currentTheme.textOnBg)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(currentTheme.primary.copy(alpha = 0.03f))
+                                        .border(1.dp, currentTheme.primary.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                        .clickable { sharedAzanExpanded = !sharedAzanExpanded }
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = sharedSelectedFile,
+                                        fontSize = 11.sp,
+                                        color = currentTheme.textOnBg,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Drop",
+                                        tint = currentTheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = sharedAzanExpanded,
+                                    onDismissRequest = { sharedAzanExpanded = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.75f)
+                                        .background(currentTheme.surface)
+                                        .border(1.dp, currentTheme.primary.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                ) {
+                                    azanOptions.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(text = option, fontSize = 11.sp, color = currentTheme.textOnBg) },
+                                            onClick = {
+                                                viewModel.setPrayerAzanFile("Dhuhr", option)
+                                                sharedAzanExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Divider(color = currentTheme.primary.copy(alpha = 0.1f))
+
+                    // 9. System Updates
                     Text(
                         text = "🚀 SYSTEM SERVICE",
                         fontSize = 9.sp,
