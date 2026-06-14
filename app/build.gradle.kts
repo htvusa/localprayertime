@@ -1,5 +1,3 @@
-import java.io.File
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -121,37 +119,3 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
-
-afterEvaluate {
-  val targetDirAbsolute = file("/.build-outputs")
-  val targetDirProject = file("${rootDir}/.build-outputs")
-  val buildDirectoryLocal = layout.buildDirectory
-
-  tasks.named("assembleDebug") {
-    val apkFile = buildDirectoryLocal.file("outputs/apk/debug/app-debug.apk").get().asFile
-    doLast {
-      if (apkFile.exists()) {
-        try {
-          if (!targetDirAbsolute.exists()) {
-            targetDirAbsolute.mkdirs()
-          }
-          apkFile.copyTo(File(targetDirAbsolute, "app-debug.apk"), overwrite = true)
-        } catch (e: Exception) {
-          logger.lifecycle("Warning: Failed copying to absolute /.build-outputs direction: ${e.message}")
-        }
-        try {
-          if (!targetDirProject.exists()) {
-            targetDirProject.mkdirs()
-          }
-          apkFile.copyTo(File(targetDirProject, "app-debug.apk"), overwrite = true)
-        } catch (e: Exception) {
-          logger.lifecycle("Warning: Failed copying to rootDir/.build-outputs direction: ${e.message}")
-        }
-        logger.lifecycle("Successfully copied apk to /.build-outputs and rootDir/.build-outputs")
-      } else {
-        logger.lifecycle("Could not find apk to copy at $apkFile")
-      }
-    }
-  }
-}
-
