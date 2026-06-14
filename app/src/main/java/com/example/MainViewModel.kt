@@ -1568,8 +1568,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 _latestVersionDescription.value = release.body ?: release.name ?: "New version available on GitHub."
                                 _latestReleasePageUrl.value = release.html_url ?: ""
                                 
-                                // Direct raw APK download URL requested by user
-                                _latestApkUrl.value = "https://raw.githubusercontent.com/htvusa/localprayertime/main/.build-outputs/app-debug.apk"
+                                // Direct raw APK download URL or Release Asset URL
+                                val apkAsset = release.assets?.find { it.name?.endsWith(".apk") == true }
+                                if (apkAsset != null && !apkAsset.browser_download_url.isNullOrEmpty()) {
+                                    _latestApkUrl.value = apkAsset.browser_download_url
+                                } else {
+                                    // Fallback to raw GitHub file URL with .build-outputs folder path as requested
+                                    _latestApkUrl.value = "https://raw.githubusercontent.com/htvusa/localprayertime/main/.build-outputs/app-debug.apk"
+                                }
                                 if (manuallyTriggered) {
                                     _uiEvents.emit("New update $tag is available!")
                                 }
