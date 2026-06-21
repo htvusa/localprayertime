@@ -1,6 +1,0 @@
-{
-  "name": "Local Prayer Times",
-  "description": "Continuous dynamic prayer schedules, custom atmospheric themes, built-in Quran & Nasheed streaming players, and persistent Stay Awake display support.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
