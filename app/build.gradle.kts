@@ -8,12 +8,12 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.aistudio.localprayertimes.kfqwsa"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 35
     versionCode = 22
     versionName = "3.3"
 
